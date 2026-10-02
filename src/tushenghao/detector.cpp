@@ -1,0 +1,1 @@
+void detector_skeleton_link_test() {}
