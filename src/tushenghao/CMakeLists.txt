@@ -9,7 +9,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(mark_detector
     detector.cpp
+    config.cpp
 )
+
+target_include_directories(mark_detector
+    PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)    # 解决编译期"找不到头文件"（看得见声明）工程实例：config_error_test.cpp include 了 config.hpp，但是 target 没有继承头文件搜索路径
 
 add_executable(marker_app
     main.cpp
@@ -29,9 +35,33 @@ enable_testing()  # 开测试功能
 
 add_executable(config_contract_test
     tests/config_contract_test.cpp
-)        # 编出测试程序
+)        # 编出测试程序1
+
+add_executable(config_error_test
+    tests/config_error_test.cpp
+)          # 编出测试程序2
+
+target_link_libraries(config_error_test
+    PRIVATE
+    mark_detector
+)          # 解决链接期"找不到实现"（找得到定义） 工程实例：自动获得 mark_detector 的 PUBLIC include path（接上面）
 
 add_test(
     NAME config_contract_test                  # 注册给 ctest
     COMMAND config_contract_test            # "有个测试叫这名，运行这个命令"
 )
+
+add_test(
+    NAME config_error_test
+    COMMAND config_error_test
+)        # 注册配置错误测试
+
+# 配置往返测试（3）
+add_executable(config_roundtrip_test tests/config_roundtrip_test.cpp)
+target_link_libraries(config_roundtrip_test PRIVATE mark_detector)
+add_test(NAME config_roundtrip_test COMMAND config_roundtrip_test)
+
+# 检测器契约测试（4）
+add_executable(detector_contract_test tests/detector_contract_test.cpp)
+target_link_libraries(detector_contract_test PRIVATE mark_detector)
+add_test(NAME detector_contract_test COMMAND detector_contract_test)

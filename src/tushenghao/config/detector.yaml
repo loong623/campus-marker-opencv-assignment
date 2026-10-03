@@ -1,0 +1,39 @@
+%YAML:1.0
+
+# 前面，后面的行尾都不能有注释！（debug）
+# 程序启动时读取的配置  要求：配置文件契约对齐
+# OpenCV cv::FileStorage 读取 YAML 的格式要求
+
+ # 配置文件版本号，以后格式变了靠它区分
+schema_version: 1
+
+# 输入图像格式，BGR8 是 OpenCV 默认    # 时间戳单位，us = 微秒
+input:
+  pixel_format: BGR8
+  timestamp_unit: us
+
+# 处理前把图缩到 960×720  # 二值化阈值，200
+preprocess:
+  work_width: 960
+  work_height: 720
+  threshold: 200
+
+ # 用哪个检测器，skeleton 是占位
+detector:
+  mode: Skeleton
+
+ # 时序相关的三个开关/参数（还没实现，先关着）
+temporal:
+  stabilization_enabled: 0
+  display_hold_enabled: 0
+  max_hold_frames: 5
+
+# 要不要弹窗显示
+output:
+  show_window: 0
+  show_held_state: 0
+
+# 调试开关
+debug:
+  timing_enabled: 0
+  draw_candidates: 0
