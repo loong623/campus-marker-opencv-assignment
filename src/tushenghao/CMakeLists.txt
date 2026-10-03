@@ -7,10 +7,12 @@ find_package(OpenCV REQUIRED)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# 添加库
 add_library(mark_detector
     detector.cpp
     config.cpp
     marker_geometry.cpp
+    geometry_utils.cpp
 )
 
 target_include_directories(mark_detector
@@ -81,4 +83,19 @@ target_link_libraries(
 add_test(
     NAME geometry_model_test
     COMMAND geometry_model_test
+)
+
+# 几何计算工具测试（6）
+add_executable(geometry_utils_test
+    tests/geometry_utils_test.cpp
+)
+
+target_link_libraries(geometry_utils_test
+    PRIVATE
+    mark_detector
+)
+
+add_test(
+    NAME geometry_utils_test
+    COMMAND geometry_utils_test
 )
