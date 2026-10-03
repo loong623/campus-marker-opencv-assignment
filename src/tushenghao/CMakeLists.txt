@@ -13,6 +13,7 @@ add_library(mark_detector
     config.cpp
     marker_geometry.cpp
     geometry_utils.cpp
+    geometry_matcher.cpp
 )
 
 target_include_directories(mark_detector
@@ -98,4 +99,20 @@ target_link_libraries(geometry_utils_test
 add_test(
     NAME geometry_utils_test
     COMMAND geometry_utils_test
+)
+
+# 几何匹配器测试（7）
+add_executable(
+    geometry_matcher_test
+    tests/geometry_matcher_test.cpp
+)
+
+target_link_libraries(
+    geometry_matcher_test
+    mark_detector
+)
+
+add_test(
+    NAME geometry_matcher_test
+    COMMAND geometry_matcher_test
 )
