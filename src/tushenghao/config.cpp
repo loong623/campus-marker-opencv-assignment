@@ -461,7 +461,7 @@ namespace mark
            << "{";
 
         fs << "mode"
-           << "skeleton";
+           << "Skeleton";
 
         fs << "}";
 

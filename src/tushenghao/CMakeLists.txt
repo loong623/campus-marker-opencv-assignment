@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(mark_detector
     detector.cpp
     config.cpp
+    marker_geometry.cpp
 )
 
 target_include_directories(mark_detector
@@ -65,3 +66,19 @@ add_test(NAME config_roundtrip_test COMMAND config_roundtrip_test)
 add_executable(detector_contract_test tests/detector_contract_test.cpp)
 target_link_libraries(detector_contract_test PRIVATE mark_detector)
 add_test(NAME detector_contract_test COMMAND detector_contract_test)
+
+# 几何模型加载测试（5）
+add_executable(geometry_model_test
+    tests/geometry_model_test.cpp
+)
+
+target_link_libraries(
+    geometry_model_test
+    PRIVATE
+    mark_detector
+)
+
+add_test(
+    NAME geometry_model_test
+    COMMAND geometry_model_test
+)
