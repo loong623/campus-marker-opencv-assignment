@@ -60,6 +60,16 @@ namespace mark
         // 几何假设搜索最大数量。
         // 防止组合爆炸导致资源不可控。
         std::size_t max_hypothesis_count_ = 1000;
+
+        // Block2 Step 7 几何验证最大允许残差。
+        // 用于比较模型投影轮廓与实际观测轮廓。
+        double max_validation_residual_ = 5.0;
+
+        // Step 7 面积比例验证范围。
+        // ratio = 投影面积 / 观测面积。
+        double min_area_ratio_ = 0.5;
+
+        double max_area_ratio_ = 2.0;
     };
 
     // 时序相关

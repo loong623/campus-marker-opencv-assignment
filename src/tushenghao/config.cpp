@@ -246,6 +246,24 @@ namespace mark
                 path,
                 "geometry.min_area");
 
+        detector.geometry_.max_validation_residual_ =
+            readDouble(
+                geometry["max_validation_residual"],
+                path,
+                "geometry.max_validation_residual");
+
+        detector.geometry_.min_area_ratio_ =
+            readDouble(
+                geometry["min_area_ratio"],
+                path,
+                "geometry.min_area_ratio");
+
+        detector.geometry_.max_area_ratio_ =
+            readDouble(
+                geometry["max_area_ratio"],
+                path,
+                "geometry.max_area_ratio");
+
         // 几何假设搜索资源上限。
         detector.geometry_.max_hypothesis_count_ =
             static_cast<std::size_t>(
@@ -444,6 +462,24 @@ namespace mark
                 "Config error: field=geometry.max_hypothesis_count, reason=must be greater than zero");
         }
 
+        // Step 7 残差验证阈值必须为正
+        if (detector.geometry_.max_validation_residual_ <= 0)
+        {
+            throw ConfigError(
+                "Config error: field=geometry.max_validation_residual, reason=must be positive");
+        }
+
+        // Step 7 面积比例范围检查
+        if (detector.geometry_.min_area_ratio_ <= 0 ||
+            detector.geometry_.max_area_ratio_ <= 0 ||
+            detector.geometry_.min_area_ratio_ >=
+                detector.geometry_.max_area_ratio_)
+        {
+            throw ConfigError(
+                "Config error: field=geometry.area_ratio, reason=invalid range");
+        }
+
+        // temporal配置
         if (detector.temporal.max_hold_frames < 0)
         {
             throw ConfigError(
@@ -553,6 +589,15 @@ namespace mark
         fs << "max_hypothesis_count"
            << static_cast<int>(
                   detector.geometry_.max_hypothesis_count_);
+
+        fs << "max_validation_residual"
+           << detector.geometry_.max_validation_residual_;
+
+        fs << "min_area_ratio"
+           << detector.geometry_.min_area_ratio_;
+
+        fs << "max_area_ratio"
+           << detector.geometry_.max_area_ratio_;
 
         fs << "}";
 

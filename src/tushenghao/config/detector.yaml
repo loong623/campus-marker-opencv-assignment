@@ -45,3 +45,7 @@ geometry:
   approximation_epsilon: 2.0
   min_area: 0.0
   max_hypothesis_count: 1000
+  
+  max_validation_residual: 5.0
+  min_area_ratio: 0.5
+  max_area_ratio: 2.0
