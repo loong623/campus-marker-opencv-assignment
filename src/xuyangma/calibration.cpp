@@ -1,0 +1,164 @@
+#include "calibration.hpp"
+#include <iostream>
+#include <vector>
+// camera calibration
+bool calibrateCameraFromVideo(const std::string& videoPath,int boardCols,int boardRows,double squareSize,const std::string& outputPath){
+    if(boardCols<=0||boardRows<=0||squareSize<=0){
+        std::cerr<<"Invalid board parameters."<<std::endl;
+        return false;
+    }
+    cv::VideoCapture cap(videoPath);
+    if(!cap.isOpened()){
+        std::cerr<<"Cannot open calibration video: "<<videoPath<<std::endl;
+        return false;
+    }
+    cv::Size boardSize(boardCols,boardRows);
+    std::vector<cv::Point3f> boardPoints;
+    for(int y=0;y<boardRows;y++){
+        for(int x=0;x<boardCols;x++){
+            boardPoints.emplace_back(static_cast<float>(x*squareSize),static_cast<float>(y*squareSize),0.0f);
+        }
+    }
+    std::vector<std::vector<cv::Point3f>> objectPoints;
+    std::vector<std::vector<cv::Point2f>> imagePoints;
+    std::vector<int> usedFrames;
+    cv::Mat frame;
+    cv::Mat gray;
+    cv::Size imageSize;
+    int frameIndex=0;
+    int sampleStep=30;
+    int maxFrames=30;
+    while(cap.read(frame)){
+        if(frameIndex%sampleStep!=0){
+            frameIndex++;
+            continue;
+        }
+        imageSize=frame.size();
+        cv::cvtColor(frame,gray,cv::COLOR_BGR2GRAY);
+        std::vector<cv::Point2f> corners;
+        bool found=cv::findChessboardCorners(gray,boardSize,corners,cv::CALIB_CB_ADAPTIVE_THRESH|cv::CALIB_CB_NORMALIZE_IMAGE);
+        if(found){
+            cv::cornerSubPix(gray,corners,cv::Size(11,11),cv::Size(-1,-1),cv::TermCriteria(cv::TermCriteria::EPS|cv::TermCriteria::MAX_ITER,30,0.001));
+            imagePoints.push_back(corners);
+            objectPoints.push_back(boardPoints);
+            usedFrames.push_back(frameIndex);
+            cv::drawChessboardCorners(frame,boardSize,corners,true);
+            std::cout<<"Accepted frame: "<<frameIndex<<std::endl;
+        }
+        cv::imshow("Calibration",frame);
+        int key=cv::waitKey(1);
+        if(key==27||key=='q'){
+            break;
+        }
+        if(static_cast<int>(imagePoints.size())>=maxFrames){
+            break;
+        }
+        frameIndex++;
+    }
+    cap.release();
+    cv::destroyWindow("Calibration");
+    if(imagePoints.size()<10){
+        std::cerr<<"Not enough calibration frames: "<<imagePoints.size()<<std::endl;
+        return false;
+    }
+    cv::Mat cameraMatrix;
+    cv::Mat distCoeffs;
+    std::vector<cv::Mat> rvecs;
+    std::vector<cv::Mat> tvecs;
+    double rms=cv::calibrateCamera(objectPoints,imagePoints,imageSize,cameraMatrix,distCoeffs,rvecs,tvecs);
+    std::cout<<"Calibration frames: "<<imagePoints.size()<<std::endl;
+    std::cout<<"RMS error: "<<rms<<std::endl;
+    std::cout<<"Camera matrix:"<<std::endl<<cameraMatrix<<std::endl;
+    std::cout<<"Distortion coefficients:"<<std::endl<<distCoeffs<<std::endl;
+    cv::FileStorage fs(outputPath,cv::FileStorage::WRITE);
+    if(!fs.isOpened()){
+        std::cerr<<"Cannot save calibration file."<<std::endl;
+        return false;
+    }
+    fs<<"camera_matrix"<<cameraMatrix;
+    fs<<"distortion_coefficients"<<distCoeffs;
+    fs<<"image_width"<<imageSize.width;
+    fs<<"image_height"<<imageSize.height;
+    fs<<"board_cols"<<boardCols;
+    fs<<"board_rows"<<boardRows;
+    fs<<"square_size"<<squareSize;
+    fs<<"rms_error"<<rms;
+    fs<<"used_frames"<<usedFrames;
+    fs.release();
+    std::cout<<"Calibration saved to: "<<outputPath<<std::endl;
+    return true;
+}
+// load calibration data
+bool loadCalibration(const std::string& path,CalibrationData& data){
+    cv::FileStorage fs(path,cv::FileStorage::READ);
+    if(!fs.isOpened()){
+        std::cerr<<"Cannot open calibration file: "<<path<<std::endl;
+        return false;
+    }
+    fs["camera_matrix"]>>data.cameraMatrix;
+    fs["distortion_coefficients"]>>data.distCoeffs;
+    int width=0;
+    int height=0;
+    fs["image_width"]>>width;
+    fs["image_height"]>>height;
+    data.imageSize=cv::Size(width,height);
+    fs.release();
+    if(data.cameraMatrix.empty()||data.distCoeffs.empty()){
+        std::cerr<<"Calibration file is incomplete."<<std::endl;
+        return false;
+    }
+    return true;
+}
+// solve marker pose
+bool estimatePose(const Quad& corners,const cv::Mat& cameraMatrix,const cv::Mat& distCoeffs,double markerSize,cv::Mat& rvec,cv::Mat& tvec,double& reprojectionError){
+    if(markerSize<=0){
+        return false;
+    }
+    double half=markerSize/2.0;
+    std::vector<cv::Point3f> objectPoints={
+        cv::Point3f(static_cast<float>(-half),static_cast<float>(half),0.0f),
+        cv::Point3f(static_cast<float>(half),static_cast<float>(half),0.0f),
+        cv::Point3f(static_cast<float>(half),static_cast<float>(-half),0.0f),
+        cv::Point3f(static_cast<float>(-half),static_cast<float>(-half),0.0f)
+    };
+    std::vector<cv::Point2f> imagePoints(corners.begin(),corners.end());
+    bool success=cv::solvePnP(objectPoints,imagePoints,cameraMatrix,distCoeffs,rvec,tvec,false,cv::SOLVEPNP_IPPE_SQUARE);
+    if(!success){
+        success=cv::solvePnP(objectPoints,imagePoints,cameraMatrix,distCoeffs,rvec,tvec,false,cv::SOLVEPNP_ITERATIVE);
+    }
+    if(!success){
+        return false;
+    }
+    std::vector<cv::Point2f> projectedPoints;
+    cv::projectPoints(objectPoints,rvec,tvec,cameraMatrix,distCoeffs,projectedPoints);
+    reprojectionError=0.0;
+    for(int i=0;i<4;i++){
+        reprojectionError+=cv::norm(imagePoints[i]-projectedPoints[i]);
+    }
+    reprojectionError/=4.0;
+    return true;
+}
+// draw coordinate axes
+void drawPoseAxes(cv::Mat& frame,const cv::Mat& cameraMatrix,const cv::Mat& distCoeffs,const cv::Mat& rvec,const cv::Mat& tvec,double axisLength){
+    std::vector<cv::Point3f> axes={
+        cv::Point3f(0,0,0),
+        cv::Point3f(static_cast<float>(axisLength),0,0),
+        cv::Point3f(0,static_cast<float>(axisLength),0),
+        cv::Point3f(0,0,static_cast<float>(-axisLength))
+    };
+    std::vector<cv::Point2f> imagePoints;
+    cv::projectPoints(axes,rvec,tvec,cameraMatrix,distCoeffs,imagePoints);
+    if(imagePoints.size()!=4){
+        return;
+    }
+    cv::Point origin(cvRound(imagePoints[0].x),cvRound(imagePoints[0].y));
+    cv::Point xPoint(cvRound(imagePoints[1].x),cvRound(imagePoints[1].y));
+    cv::Point yPoint(cvRound(imagePoints[2].x),cvRound(imagePoints[2].y));
+    cv::Point zPoint(cvRound(imagePoints[3].x),cvRound(imagePoints[3].y));
+    cv::line(frame,origin,xPoint,cv::Scalar(0,0,255),3);
+    cv::line(frame,origin,yPoint,cv::Scalar(0,255,0),3);
+    cv::line(frame,origin,zPoint,cv::Scalar(255,0,0),3);
+    cv::putText(frame,"X",xPoint,cv::FONT_HERSHEY_SIMPLEX,0.7,cv::Scalar(0,0,255),2);
+    cv::putText(frame,"Y",yPoint,cv::FONT_HERSHEY_SIMPLEX,0.7,cv::Scalar(0,255,0),2);
+    cv::putText(frame,"Z",zPoint,cv::FONT_HERSHEY_SIMPLEX,0.7,cv::Scalar(255,0,0),2);
+}
