@@ -1,36 +1,140 @@
-// Geometry primitive integration（衔接）
-// （拆包裹的人）GeometryMatcher：活的，是个类，有 match() 方法。它拿到 DetectionResult，去模型库里查，判断"这个检测结果到底对应哪个几何图形"。
-// 先把数据流打通
-// // GeometryMatcher 根据检测结果，在预定义几何模型中寻找对应 polygon。
-//  matcher 是"翻译官"，左手拿检测结果，右手翻模型词典，输出"这个检测对应图纸上的谁"。
+/* step6:内部流程
+ShapeObservation
+    |
+    v
+三 L 组合（C(n,3) + 6 排列）
+    |
+    v
+仿射拟合
+    |
+    v
+GeometryHypothesis
+*/
 #pragma once
-// 已废弃：方向错误，仅保留作历史参考，勿在此基础上继续开发。
-// 本文件假设 ID 已知（ID 查表），但实战中 ID 正是几何推理要求出的结果，
-// 不能由检测器直接提供。正确路线见 geometry_types.hpp。
-// 待正式链路跑通后，将通过 cleanup commit 删除。
 
+#include <vector>
 
+#include <opencv2/core.hpp>
+
+#include "geometry_types.hpp"
 #include "marker_geometry.hpp"
-#include "detection_result.hpp"
+#include "detector_config.hpp"
 
 namespace mark
 {
 
-    // 根据检测结果，将视觉结果关联到预定义几何模型。
-    class GeometryMatcher
-    {
-    public:
-        explicit GeometryMatcher(
-            const MarkerGeometry &geometry);   // 把模型交给 matcher（构造时）matcher 内部存着模型的引用，干活时查表用。
+        /*
+         * Step 6 Geometry Hypothesis Generation 总入口。
+         *
+         * 输入：
+         *
+         * ShapeObservation:
+         *     来自 Step 5 的视觉几何观测。
+         *     不包含 MARK ID。
+         *
+         * MarkerGeometry:
+         *     来自 YAML 的模型几何。
+         *     只提供候选几何解释依据，
+         *     不代表 detector 已经知道结果。
+         *
+         * GeometryConfig:
+         *     几何推理相关参数。
+         *
+         * 输出：
+         *
+         * GeometryBatch:
+         *     当前帧所有通过几何推理得到的假设。
+         */
+        GeometryBatch generateGeometryHypotheses(
+            const std::vector<ShapeObservation> &observations,
+            const MarkerGeometry &model_geometry,
+            const GeometryConfig &config);
 
-        // 根据检测结果寻找对应 polygon。
-        // 返回 nullptr 表示匹配失败。（指针好处：可以表示“没有找到”这个概念）
-        const GeometryPolygon *match(
-            const DetectionResult &detection) const;  // 调用时const GeometryPolygon* p = matcher.match(detection);（省内存）
-            // 输入 DetectionResult（检测器看到的东西），输出 GeometryPolygon*（模型库里对应的图纸），找不到返回 nullptr。
+        /*
+         * Step 6.2：
+         *
+         * 从 ShapeObservation 中寻找三个互相兼容的 L。
+         *
+         * 流程：
+         *
+         * 1. 过滤 supported_classes_ 包含 "L" 的观测。
+         * 2. 对观测 L 做 C(n,3) 组合。
+         * 3. 对模型中的三个 L 做 3! = 6 种排列。
+         *
+         * 输出：
+         *
+         * ComponentAssignment 集合。
+         *
+         * 注意：
+         * ComponentAssignment 是候选几何解释，
+         * 不是 detector 已知 ID。
+         */
+        std::vector<std::vector<ComponentAssignment>>
+        generateSixComponentCombinations(
+            const std::vector<ShapeObservation> &observations,
+            const MarkerGeometry &model_geometry,
+            const GeometryConfig &config,
+            bool &resource_truncated);
 
-    private:
-        const MarkerGeometry &geometry_;  // matcher 内部存着模型的引用，干活时查表用。
-    };
+        /*
+         * Step 6.3：
+         *
+         * 根据模型锚点和观测锚点，
+         * 拟合二维仿射变换。
+         *
+         * 方向固定：
+         *
+         * model coordinate
+         *          |
+         *          v
+         * working image coordinate
+         *
+         * 返回：
+         *
+         * 2x3 CV_64F affine matrix。
+         */
+        cv::Mat fitModelToImageAffine(
+            const std::vector<ComponentAssignment> &assignment,
+            const std::vector<ShapeObservation> &observations,
+            const MarkerGeometry &model_geometry);
+
+        /*
+         * Step 6.4：
+         *
+         * 将通过几何验证的结果封装为 GeometryHypothesis。
+         *
+         * 保存：
+         *
+         * - assignments_
+         * - affine_transform_
+         * - validation_residual_
+         * - completeness_
+         * - evidence_
+         */
+        GeometryHypothesis buildGeometryHypothesis(
+            const std::vector<ComponentAssignment> &assignment,
+            const cv::Mat &affine_transform,
+            const std::vector<ShapeObservation> &observations,
+            const MarkerGeometry &model_geometry);
 
 } // namespace mark
+
+/* 当前设计路线：ID 是推理结果，不是输入
+image
+ |
+ v
+WhiteComponent
+ |
+ v
+ShapeObservation
+ |
+ v
+candidate assignment
+ |
+ v
+geometry hypothesis
+ |
+ v
+得到解释:
+"这个白块集合最符合模型 L0/L1/M..."
+*/

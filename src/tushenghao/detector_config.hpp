@@ -3,6 +3,7 @@
 #pragma once
 
 #include <string>
+#include <cstddef>
 
 namespace mark
 {
@@ -35,7 +36,7 @@ namespace mark
 
     // 几何观察相关配置。
     // Block2 使用这些参数从白色区域中提取几何信息。
-    // 具体阈值由后续合成数据测量确定。
+    // 具体阈值由后续合成数据测量确定。// TODO: 以下参数为占位值，待合成数据测量后调优（校内赛前）。
     struct GeometryConfig
     {
         // 白色区域二值化阈值。
@@ -44,7 +45,7 @@ namespace mark
         // 当前值只是占位，后续通过数据测量调整。
         int white_threshold_ = 200;
 
-        // approxPolyDP 多边形简化精度。
+        // approxPolyDP 多边形简化精度。（简化误差）
         // 为什么需要：
         // 原始 contour 点数量可能过多，需要压缩成几何顶点。
         // 当前值只是占位。
@@ -55,7 +56,12 @@ namespace mark
         // 去除噪声产生的小连通区域。
         // 当前值只是占位。
         double min_area_ = 0.0;
+
+        // 几何假设搜索最大数量。
+        // 防止组合爆炸导致资源不可控。
+        std::size_t max_hypothesis_count_ = 1000;
     };
+
     // 时序相关
     struct TemporalConfig
     {

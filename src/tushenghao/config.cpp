@@ -246,6 +246,14 @@ namespace mark
                 path,
                 "geometry.min_area");
 
+        // 几何假设搜索资源上限。
+        detector.geometry_.max_hypothesis_count_ =
+            static_cast<std::size_t>(
+                readInt(
+                    geometry["max_hypothesis_count"],
+                    path,
+                    "geometry.max_hypothesis_count"));
+
         cv::FileNode detector_node =
             requireNode("detector");
 
@@ -429,6 +437,13 @@ namespace mark
                 "Config error: field=geometry.min_area, reason=must be non-negative");
         }
 
+        // 搜索上限必须大于 0。
+        if (detector.geometry_.max_hypothesis_count_ == 0)
+        {
+            throw ConfigError(
+                "Config error: field=geometry.max_hypothesis_count, reason=must be greater than zero");
+        }
+
         if (detector.temporal.max_hold_frames < 0)
         {
             throw ConfigError(
@@ -534,6 +549,10 @@ namespace mark
 
         fs << "min_area"
            << detector.geometry_.min_area_;
+
+        fs << "max_hypothesis_count"
+           << static_cast<int>(
+                  detector.geometry_.max_hypothesis_count_);
 
         fs << "}";
 

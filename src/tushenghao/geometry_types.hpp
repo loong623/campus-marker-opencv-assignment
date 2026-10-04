@@ -14,7 +14,7 @@ step5
 好比把圈出来的形状用直线描一遍，在拐角处标注"这里凸出去、这里凹进去"。
 supported_classes 是说：这个形状可能像 L、M、S 中的哪几个，先保留不确定性。
 
-step6
+step6(从多个白色几何观测中寻找一个能解释整套 MARK 的二维几何假设。)
 3.ComponentAssignment——"这个白块可能是模型的那个零件"
 一个猜测："3 号白块可能是模型的 L0"。注意这只是一个对应猜测，不是结论。
 
@@ -50,6 +50,7 @@ GeometryBatch
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -112,6 +113,11 @@ namespace mark
 
         // 各关键顶点的凸凹转折信息，显式记录顶点下标和转折类型。
         std::vector<TurnFeature> turns_;
+
+        // L/M/S 结构推理使用的候选锚点。
+        // 保存 simplified_polygon_ 中凹转折顶点的索引。
+        // 没有可靠凹点时保持 nullopt，不强行猜测。
+        std::optional<std::size_t> anchor_vertex_index_;
 
         // 多边形简化相对原始轮廓的误差，用于判断结构观测是否仍可信。
         double simplification_error_{0.0};

@@ -44,3 +44,4 @@ geometry:
   white_threshold: 200
   approximation_epsilon: 2.0
   min_area: 0.0
+  max_hypothesis_count: 1000

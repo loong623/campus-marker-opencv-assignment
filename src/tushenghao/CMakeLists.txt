@@ -102,18 +102,18 @@ add_test(
     COMMAND geometry_utils_test
 )
 
-# 几何匹配器测试（7）
+# 几何假设测试（7）
 add_executable(
     geometry_matcher_test
-    tests/geometry_matcher_test.cpp
-)
+    tests/geometry_matcher_test.cpp)
+
 
 target_link_libraries(
-    geometry_matcher_test
-    mark_detector
-)
+     geometry_matcher_test
+     PRIVATE
+     mark_detector)
+
 
 add_test(
     NAME geometry_matcher_test
-    COMMAND geometry_matcher_test
-)
+    COMMAND geometry_matcher_test)

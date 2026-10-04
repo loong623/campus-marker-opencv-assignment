@@ -177,6 +177,16 @@ namespace mark
                             current,
                             next);
 
+                    // 当前 Block 2 规则：
+                    // 使用第一个凹转折作为候选几何锚点。
+                    // 如果没有凹点，不进行猜测，保持 nullopt。
+                    if (feature.type_ == TurnType::CONCAVE &&
+                        !observation.anchor_vertex_index_.has_value())
+                    {
+                        observation.anchor_vertex_index_ =
+                            feature.vertex_index_;
+                    }
+
                     observation.turns_.push_back(feature);
                 }
             }
