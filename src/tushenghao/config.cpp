@@ -116,6 +116,23 @@ namespace mark
             return value;
         }
 
+        // 读取字符串字段并检查基础类型。
+        std::string readString(
+            const cv::FileNode &node,
+            const std::filesystem::path &file,
+            const std::string &field)
+        {
+            if (!node.isString())
+            {
+                throwConfigError(file, field, "expected string");
+            }
+
+            std::string value;
+            node >> value;
+
+            return value;
+        }
+
         // 读取浮点字段，并检查 YAML 基础类型。(避免 OpenCV YAML 类型坑)
         double readDouble(
             const cv::FileNode &node,
@@ -271,6 +288,13 @@ namespace mark
                     geometry["max_hypothesis_count"],
                     path,
                     "geometry.max_hypothesis_count"));
+
+        // MARK 几何模型文件路径（Block 2 加载用）。
+        detector.marker_geometry_path_ =
+            readString(
+                fs["marker_geometry_path"],
+                path,
+                "marker_geometry_path");
 
         cv::FileNode detector_node =
             requireNode("detector");
@@ -479,6 +503,13 @@ namespace mark
                 "Config error: field=geometry.area_ratio, reason=invalid range");
         }
 
+        // MARK 几何模型路径不能为空。
+        if (detector.marker_geometry_path_.empty())
+        {
+            throw ConfigError(
+                "Config error: field=marker_geometry_path, reason=path must not be empty");
+        }
+
         // temporal配置
         if (detector.temporal.max_hold_frames < 0)
         {
@@ -600,6 +631,9 @@ namespace mark
            << detector.geometry_.max_area_ratio_;
 
         fs << "}";
+
+        fs << "marker_geometry_path"
+           << detector.marker_geometry_path_;
 
         fs << "detector"
            << "{";

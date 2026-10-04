@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 添加库
 add_library(mark_detector
     detector.cpp
+    preprocess.cpp
     config.cpp
     marker_geometry.cpp
     geometry_utils.cpp
@@ -118,3 +119,8 @@ target_link_libraries(
 add_test(
     NAME geometry_matcher_test
     COMMAND geometry_matcher_test)
+
+# TODO: 临时手动验证 Step7，赛前用合成器做完整验证后删除
+add_executable(manual_validation_check tests/manual_validation_check.cpp)
+target_link_libraries(manual_validation_check mark_detector ${OpenCV_LIBS})
+add_test(NAME manual_validation_check COMMAND manual_validation_check)

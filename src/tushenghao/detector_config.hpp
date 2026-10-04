@@ -111,6 +111,10 @@ namespace mark
 
         GeometryConfig geometry_;
 
+        // MARK 几何模型 YAML 路径
+        // 用于 Block 2 geometry matcher 加载模型几何描述。
+        std::string marker_geometry_path_ = "config/marker_geometry.yaml";
+
         DetectorMode mode = DetectorMode::Skeleton;
 
         TemporalConfig temporal;

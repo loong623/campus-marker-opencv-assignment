@@ -19,7 +19,10 @@ preprocess:
   work_height: 720
   threshold: 200
 
- # 用哪个检测器，skeleton 是占位
+# MARK 几何模型文件路径，Block 2 加载用
+marker_geometry_path: "config/marker_geometry.yaml"
+
+# 用哪个检测器，skeleton 是占位
 detector:
   mode: Skeleton
 

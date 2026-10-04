@@ -10,6 +10,9 @@
 #include "detector.hpp"
 
 #include <iostream>
+#include <filesystem>
+
+#include <opencv2/opencv.hpp>
 
 namespace
 {
@@ -18,6 +21,17 @@ namespace
     mark::DetectorConfig createConfig()
     {
         mark::DetectorConfig config;
+
+        // 测试用几何模型绝对路径，避免 CWD 依赖。
+        // config.marker_geometry_path_ = "/home/tushenghao/projects/campus-marker-opencv-assignment/src/tushenghao/config/marker_geometry.yaml";
+
+        // 测试用几何模型路径：从本测试文件位置推导，不依赖 CWD。
+        {
+            std::filesystem::path test_file(__FILE__);
+            std::filesystem::path cfg =
+                test_file.parent_path().parent_path() / "config" / "marker_geometry.yaml";
+            config.marker_geometry_path_ = cfg.string();
+        }
 
         config.schema_version = 1;
 
@@ -70,6 +84,9 @@ namespace
         mark::Detector detector(createConfig());
 
         mark::FrameInput frame{};
+
+        // Step 8.1 后 process() 跑真 pipeline，需要非空输入图。
+        frame.image = cv::Mat(720, 960, CV_8UC3, cv::Scalar(0, 0, 0));
 
         mark::FrameResult result =
             detector.process(frame);

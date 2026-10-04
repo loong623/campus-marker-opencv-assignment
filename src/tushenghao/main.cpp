@@ -18,6 +18,12 @@ int main(int argc, char **argv)
                 mark::loadConfig(
                     "src/tushenghao/config/detector.yaml");
 
+            // TODO(作业后、赛前修): marker_geometry_path_ 相对路径依赖 CWD。
+            // 现状: 必须 cd 到 src/tushenghao/ 再跑 app，否则找不到 config/marker_geometry.yaml 会崩。
+            // 修法: 读完 detector.yaml 后，若 marker_geometry_path_ 是相对路径，转成绝对路径。
+            //       可参考 tests/detector_contract_test.cpp 里用 __FILE__ 推导的写法。
+            //       另需检查 detector.yaml 本身是否也有同类相对路径加载问题。
+
             // 构造时再次校验 DetectorConfig，确保直接传入配置也满足要求。
             mark::Detector detector(config.detector_config);
 

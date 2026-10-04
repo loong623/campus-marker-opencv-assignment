@@ -1,13 +1,20 @@
 #include "detector.hpp"
 #include "app_config.hpp"
 #include "config.hpp"
-
+#include "marker_geometry.hpp"
+#include "preprocess.hpp"
+#include "geometry_observation.hpp"
+#include "geometry_matcher.hpp"
+#include "geometry_validation.hpp"
 namespace mark
 {
 
     struct Detector::Impl
     {
         DetectorConfig config;
+
+        // Block 2 MARK 几何模型
+        MarkerGeometry marker_geometry;  // 注意名字是 marker_geometry，后面构造用
 
         // TODO:
         // 后续板块补充检测状态，例如时序缓存、跟踪状态等。
@@ -25,6 +32,11 @@ namespace mark
         validateConfig(app_config);              // 验证函数站在应用配置总入口检查
 
         impl_->config = std::move(config);       // 检查是否合法后，保存到 Detector 内部
+
+        // 加载 Block 2 MARK 几何模型(构造函数加载 load geometry)
+        impl_->marker_geometry =
+            loadMarkerGeometry(
+                impl_->config.marker_geometry_path_);
     }
 
     /*第一版错误：构造函数里直接调用 validateConfig(config) 报错：
@@ -42,10 +54,52 @@ namespace mark
 
     FrameResult Detector::process(const FrameInput &frame)
     {
-        (void)frame;            // 防止unused parameter 'frame'
-
-        // 当前阶段只建立接口骨架，实际检测流程由后续板块实现。
         FrameResult result;
+
+        // Block 1：预处理，得到工作图和帧上下文。
+        PreparedFrame prepared =
+            preprocess(frame, impl_->config.preprocess);
+
+        // Step 5：提取白色连通域。
+        auto components =
+            extractWhiteComponents(
+                prepared,
+                impl_->config.geometry_);
+
+        // Step 5：观测 L/M/S 形状。
+        auto observations =
+            observeShapes(
+                components,
+                impl_->config.geometry_);
+
+        // Step 6：生成几何假设。
+        GeometryBatch batch =
+            generateGeometryHypotheses(
+                observations,
+                impl_->marker_geometry,
+                impl_->config.geometry_);
+
+        // Step 7：独立验证假设。
+        batch =
+            validateGeometryBatch(
+                batch,
+                impl_->marker_geometry,
+                components,
+                impl_->config.geometry_);
+
+        // 审计：记录本帧各阶段数量，供离线分析。
+        batch.diagnostics_.push_back(
+            "geometry_audit: components=" +
+            std::to_string(components.size()) +
+            ", observations=" +
+            std::to_string(observations.size()) +
+            ", hypotheses=" +
+            std::to_string(batch.hypotheses_.size()) +
+            ", resource_truncated=" +
+            (batch.resource_truncated_ ? "true" : "false"));
+
+        // Block 3 未实现，保持 NOT_READY。
+        result.status = Status::NOT_READY;
 
         return result;
     }
