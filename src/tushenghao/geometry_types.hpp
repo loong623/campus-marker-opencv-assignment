@@ -1,3 +1,52 @@
+// 从视觉证据推理出几何解释（数据流冻结）
+/* 接口讲解：几何推理链——从白块到假设的数据流转（从像素到几何假设的完整链条）Block2核心（六个白块一一对应）
+我们在解决什么问题？
+图像里有一堆白块，我们要回答：这里有没有 MARK？如果有，哪个白块对应模型的哪个零件（L0、L2、M1...）？
+注意：我们不知道答案，得从证据推理出来。这就是跟之前废掉的 matcher 最大的区别——那个假设 ID 已知，直接查表；现在是从零推理。
+五个类型就是推理的五个阶段：
+step5
+1.WhiteComponent——"我发现一个白块"
+从图像分割来的原始观测：轮廓、面积、外接框、碰没碰图像边。
+好比拿笔把照片里的白色区域圈出来。
+
+2.ShapeObservation——"这个白块长这样"
+把圈出来的抖动轮廓简化成多边形，标出每个关键顶点是凸还是凹。
+好比把圈出来的形状用直线描一遍，在拐角处标注"这里凸出去、这里凹进去"。
+supported_classes 是说：这个形状可能像 L、M、S 中的哪几个，先保留不确定性。
+
+step6
+3.ComponentAssignment——"这个白块可能是模型的那个零件"
+一个猜测："3 号白块可能是模型的 L0"。注意这只是一个对应猜测，不是结论。
+
+4.GeometryHypothesis——"这是一个完整的解释" （对应集合 + 仿射矩阵 + 验证残差 + 证据）
+一组对应猜测合起来："1、3、5 号白块分别是 L0、L2、L3，模型到图像的仿射变换是这个矩阵"。
+为什么是一组？单个白块说明不了 MARK，得凑齐一套才有意义。
+affine_transform 是 2x3 的二维映射（模型坐标→图像坐标），不是相机位姿，Block 2 不碰 3D。
+
+结果传递给block 3
+5.GeometryBatch——"这一帧我所有的解释"
+一帧可能有多个说得通的假设，都保留，不强行选唯一。外加诊断信息和"算力不够截断了"的标记。
+
+三个关键设计为什么这样定：
+1.TurnFeature 不用 vector<int>：[1,-1,1] 这种编码过两天自己都看不懂。改成 {vertex_index: 2, type: CONCAVE}，顶点下标和凸凹语义绑死，自解释。
+2.完整性用两态枚举不用分数：Block 2 只分得清"明确不完整"（比如被图像边切掉了）和"待验证"（看着像，等 Block 3 细查）。打 0.85 分这种事留给后面，不在 Block 2 冒充。
+3.ComponentAssignment 里没有 error 字段：单个对应不谈误差，误差是整个假设的事（validation_residual_），放 GeometryHypothesis 里。
+*/
+/* pipeline:数据流（像素 → WhiteComponent（分割）→ ShapeObservation（简化）→ ComponentAssignment（配对猜测）→ GeometryHypothesis（成组+仿射）→ GeometryBatch（收拢））
+WhiteComponent
+      |
+      v
+ShapeObservation
+      |
+      v
+ComponentAssignment
+      |
+      v
+GeometryHypothesis
+      |
+      v
+GeometryBatch
+*/
 #pragma once
 
 #include <cstddef>
@@ -8,12 +57,12 @@
 
 namespace mark
 {
-
+    // 前面三个是零件
     // 转折类型：显式区分简化多边形顶点是凸转折还是凹转折。
     enum class TurnType
     {
-        CONVEX,
-        CONCAVE
+        CONVEX,   // 凸转折：顶点向外凸出，内角 < 180°。
+        CONCAVE   // 凹转折：顶点向内凹入，内角 > 180°。
     };
 
     // 单个多边形转折特征：把顶点位置和凸凹语义绑定，避免使用含义不明的整数编码。
@@ -33,6 +82,8 @@ namespace mark
         PENDING_VALIDATION
     };
 
+    // 对应数据流流转（见前面的五站：像素->分割 → 简化 → 配对猜测 → 成组+仿射 → 收拢）
+    // Step 5 提取的输出
     // 单个白色连通区域：保存图像分割得到的原始白片观测。
     struct WhiteComponent
     {
@@ -52,6 +103,7 @@ namespace mark
         bool touches_border_{false};
     };
 
+    // Step 5 观测的输出
     // 白片的结构化几何观测：保存简化后的形状证据及其不确定性。
     struct ShapeObservation
     {
@@ -68,6 +120,7 @@ namespace mark
         std::vector<std::string> supported_classes_;
     };
 
+    // 不是步骤输出，是 GeometryHypothesis 里的一块拼图（一个"白块可能是哪个零件"的猜测）
     // 模型片段与观测白片的对应关系：记录一个模型组件由哪一个帧内白片解释。
     struct ComponentAssignment
     {
@@ -78,6 +131,7 @@ namespace mark
         std::size_t component_id_{0};
     };
 
+    // Step 6 生成的输出
     // 几何假设的早期完整性采用 §4.7 状态，而不是用连续分数冒充最终完整性判断。
     struct GeometryHypothesis
     {
@@ -99,6 +153,7 @@ namespace mark
         std::vector<std::string> evidence_;
     };
 
+    // Step 7 验证后，整个 Block 2 的最终输出（打包合格的）
     // 一帧的几何推理结果：汇总全部合格假设以及搜索过程状态。
     struct GeometryBatch
     {

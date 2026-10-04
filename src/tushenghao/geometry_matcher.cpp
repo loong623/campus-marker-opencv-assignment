@@ -8,6 +8,11 @@ GeometryMatcher
 MarkerGeometry.polygons
 */
 #include "geometry_matcher.hpp"
+// 已废弃：方向错误，仅保留作历史参考，勿在此基础上继续开发。
+// 本文件假设 ID 已知（ID 查表），但实战中 ID 正是几何推理要求出的结果，
+// 不能由检测器直接提供。正确路线见 geometry_types.hpp。
+// 待正式链路跑通后，将通过 cleanup commit 删除。
+
 
 namespace mark
 {

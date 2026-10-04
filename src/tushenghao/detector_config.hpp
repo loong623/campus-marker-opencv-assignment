@@ -33,6 +33,29 @@ namespace mark
         int threshold = 200;               // 二值化阈值，灰度超 200 变白——用来找白色角标
     };
 
+    // 几何观察相关配置。
+    // Block2 使用这些参数从白色区域中提取几何信息。
+    // 具体阈值由后续合成数据测量确定。
+    struct GeometryConfig
+    {
+        // 白色区域二值化阈值。
+        // 为什么需要：
+        // extractWhiteComponents 需要把白色 MARK 区域从背景中分离出来。
+        // 当前值只是占位，后续通过数据测量调整。
+        int white_threshold_ = 200;
+
+        // approxPolyDP 多边形简化精度。
+        // 为什么需要：
+        // 原始 contour 点数量可能过多，需要压缩成几何顶点。
+        // 当前值只是占位。
+        double approximation_epsilon_ = 2.0;
+
+        // 白色组件面积过滤下限。
+        // 为什么需要：
+        // 去除噪声产生的小连通区域。
+        // 当前值只是占位。
+        double min_area_ = 0.0;
+    };
     // 时序相关
     struct TemporalConfig
     {
@@ -69,6 +92,8 @@ namespace mark
         InputConfig input;
 
         PreprocessConfig preprocess;
+
+        GeometryConfig geometry_;
 
         DetectorMode mode = DetectorMode::Skeleton;
 

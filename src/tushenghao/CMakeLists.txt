@@ -14,6 +14,7 @@ add_library(mark_detector
     marker_geometry.cpp
     geometry_utils.cpp
     geometry_matcher.cpp
+    geometry_observation.cpp
 )
 
 target_include_directories(mark_detector

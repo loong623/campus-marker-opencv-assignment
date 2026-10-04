@@ -4,6 +4,11 @@
 // // GeometryMatcher 根据检测结果，在预定义几何模型中寻找对应 polygon。
 //  matcher 是"翻译官"，左手拿检测结果，右手翻模型词典，输出"这个检测对应图纸上的谁"。
 #pragma once
+// 已废弃：方向错误，仅保留作历史参考，勿在此基础上继续开发。
+// 本文件假设 ID 已知（ID 查表），但实战中 ID 正是几何推理要求出的结果，
+// 不能由检测器直接提供。正确路线见 geometry_types.hpp。
+// 待正式链路跑通后，将通过 cleanup commit 删除。
+
 
 #include "marker_geometry.hpp"
 #include "detection_result.hpp"

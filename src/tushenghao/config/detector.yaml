@@ -37,4 +37,10 @@ output:
 # 调试开关
 debug:
   timing_enabled: 0
-  draw_candidates: 0
+  draw_candidates: 
+  
+# 几何观察参数（Block 2，阈值待合成数据测量后调整）
+geometry:
+  white_threshold: 200
+  approximation_epsilon: 2.0
+  min_area: 0.0

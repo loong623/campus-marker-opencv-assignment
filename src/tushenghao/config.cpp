@@ -116,6 +116,27 @@ namespace mark
             return value;
         }
 
+        // 读取浮点字段，并检查 YAML 基础类型。(避免 OpenCV YAML 类型坑)
+        double readDouble(
+            const cv::FileNode &node,
+            const std::filesystem::path &file,
+            const std::string &field)
+        {
+            if (!node.isReal() && !node.isInt())
+            {
+                throwConfigError(
+                    file,
+                    field,
+                    "expected number");
+            }
+
+            double value = 0.0;
+
+            node >> value;
+
+            return value;
+        }
+
     } // namespace
 
     // 从 YAML 文件读取配置，并转换成内部强类型配置。(把 YAML 里的文字配置，变成 C++ 能使用的结构。) 第一个函数！！！
@@ -201,6 +222,29 @@ namespace mark
                 preprocess["threshold"],
                 path,
                 "preprocess.threshold");
+
+        // Block 2 几何观测配置。
+        // 控制白色区域提取、多边形简化和面积过滤。
+        cv::FileNode geometry =
+            requireNode("geometry");
+
+        detector.geometry_.white_threshold_ =
+            readInt(
+                geometry["white_threshold"],
+                path,
+                "geometry.white_threshold");
+
+        detector.geometry_.approximation_epsilon_ =
+            readDouble(
+                geometry["approximation_epsilon"],
+                path,
+                "geometry.approximation_epsilon");
+
+        detector.geometry_.min_area_ =
+            readDouble(
+                geometry["min_area"],
+                path,
+                "geometry.min_area");
 
         cv::FileNode detector_node =
             requireNode("detector");
@@ -363,6 +407,28 @@ namespace mark
                 "Config error: field=preprocess.threshold, reason=range 0-255");
         }
 
+        // geometry.white_threshold 与灰度阈值范围一致。
+        if (detector.geometry_.white_threshold_ < 0 ||
+            detector.geometry_.white_threshold_ > 255)
+        {
+            throw ConfigError(
+                "Config error: field=geometry.white_threshold, reason=range 0-255");
+        }
+
+        // approxPolyDP 的 epsilon 不允许为负。
+        if (detector.geometry_.approximation_epsilon_ < 0)
+        {
+            throw ConfigError(
+                "Config error: field=geometry.approximation_epsilon, reason=must be non-negative");
+        }
+
+        // 面积过滤下限不允许为负。
+        if (detector.geometry_.min_area_ < 0)
+        {
+            throw ConfigError(
+                "Config error: field=geometry.min_area, reason=must be non-negative");
+        }
+
         if (detector.temporal.max_hold_frames < 0)
         {
             throw ConfigError(
@@ -454,6 +520,20 @@ namespace mark
 
         fs << "threshold"
            << detector.preprocess.threshold;
+
+        fs << "}";
+
+        fs << "geometry"
+           << "{";
+
+        fs << "white_threshold"
+           << detector.geometry_.white_threshold_;
+
+        fs << "approximation_epsilon"
+           << detector.geometry_.approximation_epsilon_;
+
+        fs << "min_area"
+           << detector.geometry_.min_area_;
 
         fs << "}";
 
