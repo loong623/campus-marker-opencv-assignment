@@ -66,6 +66,11 @@ namespace mark
                 prepared,
                 impl_->config.geometry_);
 
+        // 保存 Block 2 已提取的白色组件。
+        // Block 3 通过 GeometryHypothesis 的 component_id_
+        // 回查当前帧真实观测，不重新做白块分割。
+        prepared.components_ = components;  // 把 extractWhiteComponents() 刚算出来的白块列表，存进 prepared.components_(顺手配套修改)
+
         // Step 5：观测 L/M/S 形状。
         auto observations =
             observeShapes(

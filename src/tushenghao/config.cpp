@@ -299,6 +299,58 @@ namespace mark
         cv::FileNode detector_node =
             requireNode("detector");
 
+        // Block 3 角点恢复参数。
+        cv::FileNode corner_node =
+            detector_node["corner"];
+
+        detector.corner_.local_search_margin_ratio_ =
+            readDouble(
+                corner_node["local_search_margin_ratio"],
+                path,
+                "corner.local_search_margin_ratio");
+
+        detector.corner_.min_line_points_ =
+            readInt(
+                corner_node["min_line_points"],
+                path,
+                "corner.min_line_points");
+
+        detector.corner_.max_line_fit_error_ =
+            readDouble(
+                corner_node["max_line_fit_error"],
+                path,
+                "corner.max_line_fit_error");
+
+        detector.corner_.min_intersection_angle_deg_ =
+            readDouble(
+                corner_node["min_intersection_angle_deg"],
+                path,
+                "corner.min_intersection_angle_deg");
+
+        detector.corner_.max_corner_error_ =
+            readDouble(
+                corner_node["max_corner_error"],
+                path,
+                "corner.max_corner_error");
+
+        detector.corner_.reject_truncated_corner_ =
+            readBool(
+                corner_node["reject_truncated_corner"],
+                path,
+                "corner.reject_truncated_corner");
+
+        detector.corner_.approximation_epsilon_ =
+            readDouble(
+                corner_node["approximation_epsilon"],
+                path,
+                "corner.approximation_epsilon");
+
+        detector.corner_.edge_point_distance_threshold_ =
+            readDouble(
+                corner_node["edge_point_distance_threshold"],
+                path,
+                "corner.edge_point_distance_threshold");
+
         // 先检查字段存在，再检查类型，避免 YAML 类型错误被直接转换掩盖。
         cv::FileNode mode_node =
             detector_node["mode"];
@@ -503,6 +555,53 @@ namespace mark
                 "Config error: field=geometry.area_ratio, reason=invalid range");
         }
 
+        // Block 3 corner 参数校验
+        const auto &corner =
+            detector.corner_;
+            
+        if (corner.local_search_margin_ratio_ <= 0.0)
+        {
+            throw ConfigError(
+                "Config error: field=corner.local_search_margin_ratio, reason=must be positive");
+        }
+
+        if (corner.min_line_points_ < 2)
+        {
+            throw ConfigError(
+                "Config error: field=corner.min_line_points, reason=must be >= 2");
+        }
+
+        if (corner.max_line_fit_error_ <= 0.0)
+        {
+            throw ConfigError(
+                "Config error: field=corner.max_line_fit_error, reason=must be positive");
+        }
+
+        if (corner.min_intersection_angle_deg_ <= 0.0 ||
+            corner.min_intersection_angle_deg_ >= 180.0)
+        {
+            throw ConfigError(
+                "Config error: field=corner.min_intersection_angle_deg, reason=must be in (0,180)");
+        }
+
+        if (corner.max_corner_error_ <= 0.0)
+        {
+            throw ConfigError(
+                "Config error: field=corner.max_corner_error, reason=must be positive");
+        }
+
+        if (detector.corner_.approximation_epsilon_ <= 0.0)
+        {
+            throw ConfigError(
+                "Config error: field=corner.approximation_epsilon, reason=must be positive");
+        }
+
+        if (corner.edge_point_distance_threshold_ <= 0.0)
+        {
+            throw ConfigError(
+                "Config error: field=corner.edge_point_distance_threshold, reason=must be positive");
+        }
+
         // MARK 几何模型路径不能为空。
         if (detector.marker_geometry_path_.empty())
         {
@@ -640,6 +739,37 @@ namespace mark
 
         fs << "mode"
            << "Skeleton";
+
+        // 结构对齐（写和读的位置要一致）
+        fs << "corner"
+           << "{";
+
+        fs << "local_search_margin_ratio"
+           << detector.corner_.local_search_margin_ratio_;
+
+        fs << "min_line_points"
+           << detector.corner_.min_line_points_;
+
+        fs << "max_line_fit_error"
+           << detector.corner_.max_line_fit_error_;
+
+        fs << "min_intersection_angle_deg"
+           << detector.corner_.min_intersection_angle_deg_;
+
+        fs << "max_corner_error"
+           << detector.corner_.max_corner_error_;
+
+        fs << "reject_truncated_corner"
+           << static_cast<int>(
+                  detector.corner_.reject_truncated_corner_);
+
+        fs << "approximation_epsilon"
+           << detector.corner_.approximation_epsilon_;
+
+        fs << "edge_point_distance_threshold"
+           << detector.corner_.edge_point_distance_threshold_;
+
+        fs << "}";
 
         fs << "}";
 

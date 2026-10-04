@@ -1,4 +1,4 @@
-// 配置模块的（测 config.cpp）写出再读回，14 个字段不丢（Config → YAML → Config 一致性）
+// 配置模块的（测 config.cpp）写出再读回，14 个字段不丢（Config → YAML → Config 一致性）+8个corner相关字段
 // 配置往返测试:验证"写出→读回"不丢信息：14 个字段原样回来
 /* 解释必要性：
 打个比方：你写一封信，寄出去再寄回来，打开一看一字不差——证明邮局没丢字、没改字。
@@ -50,6 +50,15 @@ namespace
         detector.debug.timing_enabled = false;
         detector.debug.draw_candidates = false;
 
+        detector.corner_.local_search_margin_ratio_ = 0.2;
+        detector.corner_.min_line_points_ = 5;
+        detector.corner_.max_line_fit_error_ = 2.0;
+        detector.corner_.min_intersection_angle_deg_ = 10.0;
+        detector.corner_.max_corner_error_ = 5.0;
+        detector.corner_.reject_truncated_corner_ = true;
+        detector.corner_.approximation_epsilon_ = 2.0;
+        detector.corner_.edge_point_distance_threshold_ = 3.0;
+
         return config;
     }
 
@@ -87,7 +96,16 @@ namespace
                a.debug.timing_enabled ==
                    b.debug.timing_enabled &&
                a.debug.draw_candidates ==
-                   b.debug.draw_candidates;
+                   b.debug.draw_candidates &&
+
+               a.corner_.local_search_margin_ratio_ == b.corner_.local_search_margin_ratio_ &&
+               a.corner_.min_line_points_ == b.corner_.min_line_points_ &&
+               a.corner_.max_line_fit_error_ == b.corner_.max_line_fit_error_ &&
+               a.corner_.min_intersection_angle_deg_ == b.corner_.min_intersection_angle_deg_ &&
+               a.corner_.max_corner_error_ == b.corner_.max_corner_error_ &&
+               a.corner_.reject_truncated_corner_ == b.corner_.reject_truncated_corner_ &&
+               a.corner_.approximation_epsilon_ == b.corner_.approximation_epsilon_ &&
+               a.corner_.edge_point_distance_threshold_ == b.corner_.edge_point_distance_threshold_;
     }
 
 } // namespace

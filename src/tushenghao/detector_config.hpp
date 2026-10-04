@@ -72,6 +72,94 @@ namespace mark
         double max_area_ratio_ = 2.0;
     };
 
+    /**
+     * @brief Block 3 角点恢复配置（Block 3 角点恢复的 6 个可调参数（局部搜索范围、最小点数、拟合误差、最小夹角、交点误差、截断拒绝））
+     *
+     * 控制：
+     * - 局部边搜索；
+     * - 直线拟合；
+     * - 交点稳定性检查。
+     *
+     * 不负责：
+     * - 屏幕排序；
+     * - 语义归并；
+     * - 时序稳定。
+     */
+    struct CornerConfig
+    {
+        /**
+         * @brief 局部搜索区域扩大比例
+         *
+         * 根据模型对应区域扩大搜索范围。
+         *
+         * 只用于寻找真实观测边，
+         * 不生成预测点。
+         */
+        double local_search_margin_ratio_{0.2};
+
+        /**
+         * @brief 拟合直线所需最少点数
+         *
+         * 点数不足时，
+         * 当前边没有足够观测证据。
+         */
+        int min_line_points_{5};
+
+        /**
+         * @brief 最大直线拟合误差
+         *
+         * 超过该值说明当前边段不满足直线假设。
+         */
+        double max_line_fit_error_{2.0};
+
+        /**
+         * @brief 两条边允许的最小夹角
+         *
+         * 防止近平行直线产生不稳定交点。
+         */
+        double min_intersection_angle_deg_{10.0};
+
+        /**
+         * @brief 最大角点交点误差
+         *
+         * 检查交点是否仍位于实际转折附近。
+         */
+        double max_corner_error_{5.0};
+
+        /**
+         * @brief 是否拒绝截断角
+         *
+         * true：
+         * 图像边界切断结构时，
+         * 不输出有效角。
+         */
+        bool reject_truncated_corner_{true};
+
+        /**
+         * @brief Block 3 轮廓近似参数
+         *
+         * 用于 corner_resolver.cpp 内部 approxPolyDP。
+         *
+         * 与 Block 2 的 GeometryConfig::approximation_epsilon_
+         * 分开维护。
+         *
+         * Block 2 负责形状观察，
+         * Block 3 负责角点边定位，
+         * 两者调参目的不同。
+         */
+        double approximation_epsilon_{2.0};
+
+        /**
+         * @brief 点到候选边的距离阈值
+         *
+         * 用于 find_matching_edge 收集 contour 点。
+         * 跟 approximation_epsilon_ 分开：
+         * epsilon 控制轮廓简化强度，
+         * 这个控制点归属判定。
+         */
+        double edge_point_distance_threshold_{3.0};
+    };
+
     // 时序相关
     struct TemporalConfig
     {
@@ -110,6 +198,13 @@ namespace mark
         PreprocessConfig preprocess;
 
         GeometryConfig geometry_;
+
+        /**
+         * @brief Block 3 角点恢复配置
+         *
+         * 控制物理角恢复阶段的搜索和误差判断。
+         */
+        CornerConfig corner_;   // 从 detector.yaml 的 corner: 节点读值，填进 config.corner_（后面调用）
 
         // MARK 几何模型 YAML 路径
         // 用于 Block 2 geometry matcher 加载模型几何描述。

@@ -1,4 +1,4 @@
-/*实现范围：
+/*实现范围：预处理后的当前帧数据
 FrameInput
     |
     v
@@ -18,6 +18,9 @@ PreparedFrame
 #pragma once
 
 #include <cstdint>
+#include <vector>
+
+#include "geometry_types.hpp"
 
 #include <opencv2/core.hpp>
 
@@ -39,6 +42,19 @@ namespace mark
         double scale_x_{1.0};
 
         double scale_y_{1.0};
+
+        /**
+         * @brief 当前帧白色连通区域
+         *
+         * Block 2 分割阶段生成。
+         *
+         * Block 3 根据 GeometryHypothesis 中的 component_id_
+         * 直接回查这里的真实观测轮廓。
+         * 加 components_ 以补这条链：component_id_ → frame.components_[id] → contour_
+         *
+         * 不重新分割，避免产生第二套观测结果。
+         */
+        std::vector<WhiteComponent> components_;
 
         // 帧上下文。
         // 用于后续阶段 audit 和结果关联。

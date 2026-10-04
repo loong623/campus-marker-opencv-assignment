@@ -4,6 +4,8 @@ project(mark_detector)
 
 find_package(OpenCV REQUIRED)
 
+find_package(GTest REQUIRED)      # 装了gtest（被迫）
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -17,6 +19,7 @@ add_library(mark_detector
     geometry_matcher.cpp
     geometry_observation.cpp
     geometry_validation.cpp
+    corner_resolver.cpp
 )
 
 target_include_directories(mark_detector
@@ -124,3 +127,19 @@ add_test(
 add_executable(manual_validation_check tests/manual_validation_check.cpp)
 target_link_libraries(manual_validation_check mark_detector ${OpenCV_LIBS})
 add_test(NAME manual_validation_check COMMAND manual_validation_check)
+
+# 角点恢复测试 (Block 3 Step 3)
+add_executable(
+    corner_resolver_test
+    tests/corner_resolver_test.cpp)
+
+target_link_libraries(
+    corner_resolver_test
+    PRIVATE
+    mark_detector
+    GTest::gtest
+    GTest::gtest_main) # test 用了 <gtest/gtest.h>，得显式链 gtest
+
+add_test(
+    NAME corner_resolver_test
+    COMMAND corner_resolver_test)

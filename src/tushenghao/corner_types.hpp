@@ -5,6 +5,7 @@
 #include <array>
 #include <string>
 #include <optional>
+#include <vector>
 
 # include <opencv2/core.hpp>
 
