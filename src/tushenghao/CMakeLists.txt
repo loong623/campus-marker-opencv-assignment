@@ -21,6 +21,7 @@ add_library(mark_detector
     geometry_validation.cpp
     corner_resolver.cpp
     screen_order.cpp
+    semantic_resolver.cpp
 )
 
 target_include_directories(mark_detector
@@ -163,3 +164,8 @@ add_test(
     NAME screen_order_test
     COMMAND screen_order_test
 )
+
+# Step 5 语义归并测试：验证 resolveSemantics() 的几何一致性、方向唯一性、残差选择、截断覆盖
+add_executable(semantic_resolver_test tests/semantic_resolver_test.cpp)
+target_link_libraries(semantic_resolver_test PRIVATE mark_detector GTest::gtest GTest::gtest_main)
+add_test(NAME semantic_resolver_test COMMAND semantic_resolver_test)

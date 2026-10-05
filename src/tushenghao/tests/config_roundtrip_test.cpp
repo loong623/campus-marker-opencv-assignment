@@ -1,4 +1,5 @@
-// 配置模块的（测 config.cpp）写出再读回，14 个字段不丢（Config → YAML → Config 一致性）+8个corner相关字段
+// corner config fields: 23
+// 配置模块的（测 config.cpp）写出再读回，14 个字段不丢（Config → YAML → Config 一致性）+9个corner相关字段
 // 配置往返测试:验证"写出→读回"不丢信息：14 个字段原样回来
 /* 解释必要性：
 打个比方：你写一封信，寄出去再寄回来，打开一看一字不差——证明邮局没丢字、没改字。
@@ -58,6 +59,7 @@ namespace
         detector.corner_.reject_truncated_corner_ = true;
         detector.corner_.approximation_epsilon_ = 2.0;
         detector.corner_.edge_point_distance_threshold_ = 3.0;
+        detector.corner_.semantic_geometry_threshold_ = 64.0; // Step 5 假设间几何一致性阈值 单位：pixel²
 
         return config;
     }
@@ -105,7 +107,8 @@ namespace
                a.corner_.max_corner_error_ == b.corner_.max_corner_error_ &&
                a.corner_.reject_truncated_corner_ == b.corner_.reject_truncated_corner_ &&
                a.corner_.approximation_epsilon_ == b.corner_.approximation_epsilon_ &&
-               a.corner_.edge_point_distance_threshold_ == b.corner_.edge_point_distance_threshold_;
+               a.corner_.edge_point_distance_threshold_ == b.corner_.edge_point_distance_threshold_&&
+               a.corner_.semantic_geometry_threshold_ == b.corner_.semantic_geometry_threshold_;
     }
 
 } // namespace

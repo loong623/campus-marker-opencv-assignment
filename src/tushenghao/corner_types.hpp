@@ -385,6 +385,82 @@ namespace mark
         std::string rejection_reason_;
     };
 
+    /* Block 3 三层结果包装顺序:
+    角点检测结果
+        ↓
+    屏幕排序结果
+        ↓
+    语义归并结果
+        ↓
+    检测校验结果
+    */
+    /**
+     * @brief 语义归并结果
+     *
+     * 用于处理多个 CornerMeasurement 之间的几何解释关系。
+     *
+     * 这里回答：
+     *
+     * - 多个测量是否描述同一个几何对象；
+     * - 当前方向是否可以唯一确定；
+     * - 最终保留哪些测量假设。
+     *
+     * 不负责：
+     * - 单角检测；
+     * - 屏幕排序；
+     * - Detection 创建。
+     */
+    struct SemanticResolution
+    {
+        /**
+         * @brief 几何一致性结果
+         *
+         * true：
+         * 多个 CornerMeasurement 在无标签四点集合和循环对应意义下，
+         * 可以解释为同一个几何对象。
+         *
+         * false：
+         * 不同测量之间存在无法解释的几何冲突。
+         */
+        bool geometry_consistent_;
+
+        /**
+         * @brief 方向是否唯一
+         *
+         * true：
+         * 当前证据支持唯一方向解释。
+         *
+         * false：
+         * 几何可能有效，但存在方向歧义。
+         *
+         * 如果搜索过程被截断：
+         * search_truncated=true 时，
+         * 不能声明方向唯一。
+         */
+        bool orientation_unique_;
+
+        /**
+         * @brief 保留的几何假设
+         *
+         * 保存语义归并后保留的 CornerMeasurement。
+         *
+         * 不平均多个不同假设的角点：
+         * - 不制造新的坐标来源；
+         * - 几何一致时选择已有测量中的最佳结果。
+         */
+        std::vector<CornerMeasurement> retained_measurements_;
+
+        /**
+         * @brief 拒绝原因
+         *
+         * 当无法形成有效语义结果时，
+         * 保存具体原因。
+         *
+         * 成功时保持为空。
+         */
+        std::string rejection_reason_;
+    };
+
       // 三个"信封"——成功就装结果，失败就装拒绝原因，不许用 (0,0) 蒙混(3)
     /**
      * @brief Detection 几何校验结果

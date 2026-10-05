@@ -83,3 +83,9 @@ corner:
   # 用于 find_matching_edge 收集 contour 点
   # 跟 approximation_epsilon 分开：epsilon 管简化强度，这个管点归属
   edge_point_distance_threshold: 3.0
+
+  # Step 5 假设间几何一致性判断阈值
+  # 单位：pixel²
+  # 比较四个角点无标签集合距离：
+  # Σ ||pi-qi||²
+  semantic_geometry_threshold: 64.0

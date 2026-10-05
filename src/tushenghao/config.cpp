@@ -351,6 +351,12 @@ namespace mark
                 path,
                 "corner.edge_point_distance_threshold");
 
+        detector.corner_.semantic_geometry_threshold_ =
+            readDouble(
+                corner_node["semantic_geometry_threshold"],
+                path,
+                "corner.semantic_geometry_threshold");
+
         // 先检查字段存在，再检查类型，避免 YAML 类型错误被直接转换掩盖。
         cv::FileNode mode_node =
             detector_node["mode"];
@@ -590,6 +596,14 @@ namespace mark
                 "Config error: field=corner.max_corner_error, reason=must be positive");
         }
 
+        if (!std::isfinite(
+                detector.corner_.semantic_geometry_threshold_) ||
+            detector.corner_.semantic_geometry_threshold_ < 0.0)
+        {
+            throw ConfigError(
+                "Config error: field=corner.semantic_geometry_threshold, reason=must be non-negative and finite");
+        }
+
         if (detector.corner_.approximation_epsilon_ <= 0.0)
         {
             throw ConfigError(
@@ -768,6 +782,9 @@ namespace mark
 
         fs << "edge_point_distance_threshold"
            << detector.corner_.edge_point_distance_threshold_;
+
+        fs << "semantic_geometry_threshold"
+           << detector.corner_.semantic_geometry_threshold_;
 
         fs << "}";
 

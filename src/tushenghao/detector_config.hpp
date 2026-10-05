@@ -158,6 +158,24 @@ namespace mark
          * 这个控制点归属判定。
          */
         double edge_point_distance_threshold_{3.0};
+
+        /**
+         * @brief 假设间几何一致性阈值
+         *
+         * 用于 Step 5 语义归并时，
+         * 判断两个 CornerMeasurement 是否描述同一个几何对象。
+         *
+         * 比较公式：
+         *
+         * Σ ||pi - qi||²
+         *
+         * 单位：
+         * pixel²
+         *
+         * 它不是单角误差阈值，
+         * 不参与直线拟合和角点检测。
+         */
+        double semantic_geometry_threshold_{64.0};
     };
 
     // 时序相关
