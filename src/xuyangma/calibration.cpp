@@ -1,10 +1,10 @@
 #include "calibration.hpp"
 #include <iostream>
 #include <vector>
-// camera calibration
-bool calibrateCameraFromVideo(const std::string& videoPath,int boardCols,int boardRows,double squareSize,const std::string& outputPath){
-    if(boardCols<=0||boardRows<=0||squareSize<=0){
-        std::cerr<<"Invalid board parameters."<<std::endl;
+// camera calibration using circle grid
+bool calibrateCameraFromVideo(const std::string& videoPath,int boardCols,int boardRows,double pointSpacing,const std::string& outputPath){
+    if(boardCols<=0||boardRows<=0||pointSpacing<=0){
+        std::cerr<<"Invalid calibration parameters."<<std::endl;
         return false;
     }
     cv::VideoCapture cap(videoPath);
@@ -16,7 +16,11 @@ bool calibrateCameraFromVideo(const std::string& videoPath,int boardCols,int boa
     std::vector<cv::Point3f> boardPoints;
     for(int y=0;y<boardRows;y++){
         for(int x=0;x<boardCols;x++){
-            boardPoints.emplace_back(static_cast<float>(x*squareSize),static_cast<float>(y*squareSize),0.0f);
+            boardPoints.emplace_back(
+                static_cast<float>(x*pointSpacing),
+                static_cast<float>(y*pointSpacing),
+                0.0f
+            );
         }
     }
     std::vector<std::vector<cv::Point3f>> objectPoints;
@@ -35,14 +39,18 @@ bool calibrateCameraFromVideo(const std::string& videoPath,int boardCols,int boa
         }
         imageSize=frame.size();
         cv::cvtColor(frame,gray,cv::COLOR_BGR2GRAY);
-        std::vector<cv::Point2f> corners;
-        bool found=cv::findChessboardCorners(gray,boardSize,corners,cv::CALIB_CB_ADAPTIVE_THRESH|cv::CALIB_CB_NORMALIZE_IMAGE);
+        std::vector<cv::Point2f> centers;
+        bool found=cv::findCirclesGrid(
+            gray,
+            boardSize,
+            centers,
+            cv::CALIB_CB_SYMMETRIC_GRID|cv::CALIB_CB_CLUSTERING
+        );
         if(found){
-            cv::cornerSubPix(gray,corners,cv::Size(11,11),cv::Size(-1,-1),cv::TermCriteria(cv::TermCriteria::EPS|cv::TermCriteria::MAX_ITER,30,0.001));
-            imagePoints.push_back(corners);
+            imagePoints.push_back(centers);
             objectPoints.push_back(boardPoints);
             usedFrames.push_back(frameIndex);
-            cv::drawChessboardCorners(frame,boardSize,corners,true);
+            cv::drawChessboardCorners(frame,boardSize,centers,true);
             std::cout<<"Accepted frame: "<<frameIndex<<std::endl;
         }
         cv::imshow("Calibration",frame);
@@ -65,11 +73,21 @@ bool calibrateCameraFromVideo(const std::string& videoPath,int boardCols,int boa
     cv::Mat distCoeffs;
     std::vector<cv::Mat> rvecs;
     std::vector<cv::Mat> tvecs;
-    double rms=cv::calibrateCamera(objectPoints,imagePoints,imageSize,cameraMatrix,distCoeffs,rvecs,tvecs);
+    double rms=cv::calibrateCamera(
+        objectPoints,
+        imagePoints,
+        imageSize,
+        cameraMatrix,
+        distCoeffs,
+        rvecs,
+        tvecs
+    );
     std::cout<<"Calibration frames: "<<imagePoints.size()<<std::endl;
     std::cout<<"RMS error: "<<rms<<std::endl;
-    std::cout<<"Camera matrix:"<<std::endl<<cameraMatrix<<std::endl;
-    std::cout<<"Distortion coefficients:"<<std::endl<<distCoeffs<<std::endl;
+    std::cout<<"Camera matrix:"<<std::endl;
+    std::cout<<cameraMatrix<<std::endl;
+    std::cout<<"Distortion coefficients:"<<std::endl;
+    std::cout<<distCoeffs<<std::endl;
     cv::FileStorage fs(outputPath,cv::FileStorage::WRITE);
     if(!fs.isOpened()){
         std::cerr<<"Cannot save calibration file."<<std::endl;
@@ -81,7 +99,8 @@ bool calibrateCameraFromVideo(const std::string& videoPath,int boardCols,int boa
     fs<<"image_height"<<imageSize.height;
     fs<<"board_cols"<<boardCols;
     fs<<"board_rows"<<boardRows;
-    fs<<"square_size"<<squareSize;
+    fs<<"point_spacing"<<pointSpacing;
+    fs<<"pattern"<<"circles";
     fs<<"rms_error"<<rms;
     fs<<"used_frames"<<usedFrames;
     fs.release();
@@ -109,7 +128,7 @@ bool loadCalibration(const std::string& path,CalibrationData& data){
     }
     return true;
 }
-// solve marker pose
+// estimate marker pose
 bool estimatePose(const Quad& corners,const cv::Mat& cameraMatrix,const cv::Mat& distCoeffs,double markerSize,cv::Mat& rvec,cv::Mat& tvec,double& reprojectionError){
     if(markerSize<=0){
         return false;
@@ -122,15 +141,40 @@ bool estimatePose(const Quad& corners,const cv::Mat& cameraMatrix,const cv::Mat&
         cv::Point3f(static_cast<float>(-half),static_cast<float>(-half),0.0f)
     };
     std::vector<cv::Point2f> imagePoints(corners.begin(),corners.end());
-    bool success=cv::solvePnP(objectPoints,imagePoints,cameraMatrix,distCoeffs,rvec,tvec,false,cv::SOLVEPNP_IPPE_SQUARE);
+    bool success=cv::solvePnP(
+        objectPoints,
+        imagePoints,
+        cameraMatrix,
+        distCoeffs,
+        rvec,
+        tvec,
+        false,
+        cv::SOLVEPNP_IPPE_SQUARE
+    );
     if(!success){
-        success=cv::solvePnP(objectPoints,imagePoints,cameraMatrix,distCoeffs,rvec,tvec,false,cv::SOLVEPNP_ITERATIVE);
+        success=cv::solvePnP(
+            objectPoints,
+            imagePoints,
+            cameraMatrix,
+            distCoeffs,
+            rvec,
+            tvec,
+            false,
+            cv::SOLVEPNP_ITERATIVE
+        );
     }
     if(!success){
         return false;
     }
     std::vector<cv::Point2f> projectedPoints;
-    cv::projectPoints(objectPoints,rvec,tvec,cameraMatrix,distCoeffs,projectedPoints);
+    cv::projectPoints(
+        objectPoints,
+        rvec,
+        tvec,
+        cameraMatrix,
+        distCoeffs,
+        projectedPoints
+    );
     reprojectionError=0.0;
     for(int i=0;i<4;i++){
         reprojectionError+=cv::norm(imagePoints[i]-projectedPoints[i]);
@@ -138,7 +182,7 @@ bool estimatePose(const Quad& corners,const cv::Mat& cameraMatrix,const cv::Mat&
     reprojectionError/=4.0;
     return true;
 }
-// draw coordinate axes
+// draw XYZ axes
 void drawPoseAxes(cv::Mat& frame,const cv::Mat& cameraMatrix,const cv::Mat& distCoeffs,const cv::Mat& rvec,const cv::Mat& tvec,double axisLength){
     std::vector<cv::Point3f> axes={
         cv::Point3f(0,0,0),
@@ -147,7 +191,14 @@ void drawPoseAxes(cv::Mat& frame,const cv::Mat& cameraMatrix,const cv::Mat& dist
         cv::Point3f(0,0,static_cast<float>(-axisLength))
     };
     std::vector<cv::Point2f> imagePoints;
-    cv::projectPoints(axes,rvec,tvec,cameraMatrix,distCoeffs,imagePoints);
+    cv::projectPoints(
+        axes,
+        rvec,
+        tvec,
+        cameraMatrix,
+        distCoeffs,
+        imagePoints
+    );
     if(imagePoints.size()!=4){
         return;
     }
