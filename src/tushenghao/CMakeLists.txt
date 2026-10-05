@@ -175,3 +175,7 @@ add_test(NAME semantic_resolver_test COMMAND semantic_resolver_test)
 add_executable(detection_validator_test tests/detection_validator_test.cpp)
 target_link_libraries(detection_validator_test PRIVATE mark_detector GTest::gtest GTest::gtest_main)
 add_test(NAME detection_validator_test COMMAND detection_validator_test)
+
+# Step 7 审计工具：逐帧跑 pipeline，命令行输出审计结果(普通工具，非测试)
+add_executable(decode_audit tools/decode_audit.cpp)
+target_link_libraries(decode_audit PRIVATE mark_detector)

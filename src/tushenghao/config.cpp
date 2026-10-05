@@ -44,6 +44,8 @@ readBool：读 0/1 开关，顺手校验只能是 0 或 1
 
 #include "config_error.hpp"
 
+#include <filesystem>
+
 // #include<iostream>  // debug临时加的
 
 namespace mark
@@ -466,6 +468,19 @@ namespace mark
                 debug["draw_candidates"],
                 path,
                 "debug.draw_candidates");
+
+        // marker_geometry_path_ 若为相对路径，转成相对于 detector.yaml 所在目录的绝对路径。
+        // 消除 CWD 依赖，Block 4/5 及 Codex 不用再 cd。
+        {
+            namespace fs = std::filesystem;
+            fs::path yaml_dir = fs::path(path).parent_path();
+            fs::path geom_path(config.detector_config.marker_geometry_path_);
+            if (geom_path.is_relative())
+            {
+                geom_path = yaml_dir / geom_path;
+                config.detector_config.marker_geometry_path_ = geom_path.string();
+            }
+        }
 
         validateConfig(config);
 

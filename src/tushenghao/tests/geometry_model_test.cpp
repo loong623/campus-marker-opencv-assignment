@@ -18,12 +18,24 @@ validateMarkerGeometry()
 #include <cassert>
 #include <iostream>
 #include <set>
+#include <filesystem>
 
 int main()
 {
+    /*
     auto geometry = mark::loadMarkerGeometry(                // 代码在 IDE 里运行正常 ≠ CTest 正常;测试不能依赖当前 shell 目录，路径应该由 CMake 或测试配置管理。
         "../../src/tushenghao/config/marker_geometry.yaml"); // Working directory trap，工作目录陷阱。测试依赖了运行时的当前目录，换个地方跑就找不到文件。
         // 解决方案：1. CMake 配置测试时，设置工作目录为项目根目录；2. 测试代码里用绝对路径；3. 测试代码里用相对路径，但相对于 CMake 配置的工作目录。
+    */
+
+    auto geometry = mark::loadMarkerGeometry(
+        ([]()
+         {
+    namespace fs = std::filesystem;
+    // __FILE__ = .../src/tushenghao/tests/geometry_model_test.cpp
+    // parent_path x2 = .../src/tushenghao
+    fs::path base = fs::path(__FILE__).parent_path().parent_path();
+    return (base / "config" / "marker_geometry.yaml").string(); })());
 
     mark::validateMarkerGeometry(
         geometry);

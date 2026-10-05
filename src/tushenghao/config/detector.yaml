@@ -20,11 +20,49 @@ preprocess:
   threshold: 200
 
 # MARK 几何模型文件路径，Block 2 加载用
-marker_geometry_path: "config/marker_geometry.yaml"
+marker_geometry_path: "marker_geometry.yaml"
 
 # 用哪个检测器，skeleton 是占位
 detector:
   mode: Skeleton
+
+  # 本来不应该放这里，以后重构再说吧
+  corner:
+    # 局部搜索区域扩大比例
+    # 只扩大真实观测搜索范围，不生成预测角点
+    local_search_margin_ratio: 0.2
+
+    # 拟合单条直线需要的最少观测点数量
+    min_line_points: 5
+
+    # 允许的最大直线拟合误差
+    max_line_fit_error: 2.0
+
+    # 两条边允许的最小夹角（度）
+    # 小于该值认为两直线近平行，交点不稳定
+    min_intersection_angle_deg: 10.0
+
+    # 允许的最大角点交点误差
+    max_corner_error: 5.0
+
+    # 是否拒绝被图像边界截断的角
+    # 与现有 YAML bool 风格保持一致
+    reject_truncated_corner: 1
+
+    # Block 3 轮廓近似参数
+    # 与 Block 2 geometry.approximation_epsilon 分开
+    approximation_epsilon: 2.0
+
+    # 点到候选边的距离阈值（像素）
+    # 用于 find_matching_edge 收集 contour 点
+    # 跟 approximation_epsilon 分开：epsilon 管简化强度，这个管点归属
+    edge_point_distance_threshold: 3.0
+
+    # Step 5 假设间几何一致性判断阈值
+    # 单位：pixel²
+    # 比较四个角点无标签集合距离：
+    # Σ ||pi-qi||²
+    semantic_geometry_threshold: 64.0
 
  # 时序相关的三个开关/参数（还没实现，先关着）
 temporal:
@@ -40,7 +78,7 @@ output:
 # 调试开关
 debug:
   timing_enabled: 0
-  draw_candidates: 
+  draw_candidates: 0 
   
 # 几何观察参数（Block 2，阈值待合成数据测量后调整）
 geometry:
@@ -52,40 +90,3 @@ geometry:
   max_validation_residual: 5.0
   min_area_ratio: 0.5
   max_area_ratio: 2.0
-
-corner:
-  # 局部搜索区域扩大比例
-  # 只扩大真实观测搜索范围，不生成预测角点
-  local_search_margin_ratio: 0.2
-
-  # 拟合单条直线需要的最少观测点数量
-  min_line_points: 5
-
-  # 允许的最大直线拟合误差
-  max_line_fit_error: 2.0
-
-  # 两条边允许的最小夹角（度）
-  # 小于该值认为两直线近平行，交点不稳定
-  min_intersection_angle_deg: 10.0
-
-  # 允许的最大角点交点误差
-  max_corner_error: 5.0
-
-  # 是否拒绝被图像边界截断的角
-  # 与现有 YAML bool 风格保持一致
-  reject_truncated_corner: 1
-
-  # Block 3 轮廓近似参数
-  # 与 Block 2 geometry.approximation_epsilon 分开
-  approximation_epsilon: 2.0
-
-  # 点到候选边的距离阈值（像素）
-  # 用于 find_matching_edge 收集 contour 点
-  # 跟 approximation_epsilon 分开：epsilon 管简化强度，这个管点归属
-  edge_point_distance_threshold: 3.0
-
-  # Step 5 假设间几何一致性判断阈值
-  # 单位：pixel²
-  # 比较四个角点无标签集合距离：
-  # Σ ||pi-qi||²
-  semantic_geometry_threshold: 64.0

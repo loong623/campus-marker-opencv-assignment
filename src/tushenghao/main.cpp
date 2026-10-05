@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <string>
+#include <filesystem>
 
 int main(int argc, char **argv)
 {
@@ -14,9 +15,20 @@ int main(int argc, char **argv)
         try
         {
             // 这里只验证配置加载到 Detector 构造的完整链路，不进入实际检测流程。
-            mark::AppConfig config =
+            /*mark::AppConfig config =
                 mark::loadConfig(
                     "src/tushenghao/config/detector.yaml");
+            */
+
+            mark::AppConfig config =
+                mark::loadConfig(
+                    ([]()
+                     {
+    namespace fs = std::filesystem;
+    // __FILE__ = .../src/tushenghao/main.cpp
+    // parent_path = .../src/tushenghao
+    fs::path base = fs::path(__FILE__).parent_path();
+    return (base / "config" / "detector.yaml").string(); })());
 
             // TODO(作业后、赛前修): marker_geometry_path_ 相对路径依赖 CWD。
             // 现状: 必须 cd 到 src/tushenghao/ 再跑 app，否则找不到 config/marker_geometry.yaml 会崩。

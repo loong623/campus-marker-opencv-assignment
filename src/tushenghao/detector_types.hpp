@@ -175,6 +175,11 @@ namespace mark
         // Missing: diagnostics field.
         // Reason: diagnostics type is not defined in block1 frozen contract.
         // Add in block5 observability layer.
+        // DO:
+        // Block 3 Step 7 审计用：最小诊断信息。
+        // 只存字符串，满足 decode_audit 命令行打印需求。
+        // Block 5 会扩展完整诊断系统，此字段保留兼容，不删除。
+        std::vector<std::string> diagnostics;
     };
 
     // 重置原因（仍属映射候选）（后续行为可能不同：void reset(ResetReason reason) noexcept;）
