@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 
 #include <opencv2/imgproc.hpp>
 
@@ -210,14 +211,53 @@ namespace mark
              * 决定最终解释。
              */
 
+            // const std::size_t turn_count =
+            //     observation.turns_.size();
+
+            // if (turn_count == 4)
+            // {
+            //     observation.supported_classes_
+            //         .push_back("L");
+            // } debug: 2026-10-05 修正：原 turn_count == 4 误将四边形标为 L，导致 generateSixComponentCombinations 无组合可用。
+
+            // L 形几何定义：6 顶点，5 凸 1 凹（内角为凹）。
+            // 4 顶点是四边形，不是 L 形。
+            // 2026-10-05 修正：原 turn_count == 4 误将四边形标为 L，
+            // 导致 generateSixComponentCombinations 无组合可用。
             const std::size_t turn_count =
                 observation.turns_.size();
 
-            if (turn_count == 4)
+            // debug
+            // std::cerr << "[DEBUG] vertices: " << turn_count << std::endl;
+
+            if (turn_count == 6 || turn_count == 7)
             {
-                observation.supported_classes_
-                    .push_back("L");
+                int concave_count = 0;
+                for (const auto &turn : observation.turns_)
+                {
+                    if (turn.type_ == TurnType::CONCAVE)
+                    {
+                        ++concave_count;
+                    }
+                }
+            
+            // debug
+                // std::cerr << "[DEBUG] vertices: " << turn_count
+                //           << " concave: " << concave_count << std::endl;
+
+                // 允许 1-2 个凹点（噪声可能多算一个）
+                if (concave_count >= 1 && concave_count <= 2)
+                {
+                    observation.supported_classes_
+                        .push_back("L");
+                }
+
+                // // debug
+                // std::cerr << "[DEBUG] has_anchor: "
+                //           << observation.anchor_vertex_index_.has_value()
+                //           << std::endl;
             }
+
             else if (turn_count >= 5)
             {
                 observation.supported_classes_

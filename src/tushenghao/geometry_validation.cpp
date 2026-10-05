@@ -54,45 +54,89 @@ namespace mark
          *
          * 的几何一致性检查。
          */
+        // double polygonResidual(
+        //     const std::vector<cv::Point2f> &projected,
+        //     const std::vector<cv::Point> &observed)
+        // {
+        //     if (projected.empty() ||
+        //         observed.empty())
+        //     {
+        //         return std::numeric_limits<double>::max();
+        //     }
+
+        //     const std::size_t count =
+        //         std::min(
+        //             projected.size(),
+        //             observed.size());
+
+        //     double total = 0.0;
+
+        //     for (std::size_t i = 0;
+        //          i < count;
+        //          ++i)
+        //     {
+        //         const double dx =
+        //             projected[i].x -
+        //             static_cast<double>(
+        //                 observed[i].x);
+
+        //         const double dy =
+        //             projected[i].y -
+        //             static_cast<double>(
+        //                 observed[i].y);
+
+        //         total +=
+        //             std::sqrt(
+        //                 dx * dx +
+        //                 dy * dy);
+        //     }
+
+        //     return total /
+        //            static_cast<double>(count);
+        // }
+        /* debug
+         * 2026-10-05 修正：
+         * 原代码按下标硬比 projected[i] vs observed[i]，
+         * 但两边不是对应点——模型顶点 6 个按建模顺序，
+         * 观测轮廓几百个点按遍历顺序，第 i 个对第 i 个毫无几何意义，
+         * 导致所有假设都被误拒。
+         *
+         * 改为几何意义明确的度量：
+         * 每个投影顶点到观测轮廓的最短距离，取平均。
+         * 仿射正确时顶点应落在轮廓上（距离≈0），
+         * 仿射错误时顶点偏离轮廓（距离大），该拒就拒。
+         */
         double polygonResidual(
             const std::vector<cv::Point2f> &projected,
             const std::vector<cv::Point> &observed)
         {
-            if (projected.empty() ||
-                observed.empty())
+            if (projected.empty() || observed.empty())
             {
                 return std::numeric_limits<double>::max();
             }
 
-            const std::size_t count =
-                std::min(
-                    projected.size(),
-                    observed.size());
-
-            double total = 0.0;
-
-            for (std::size_t i = 0;
-                 i < count;
-                 ++i)
+            // 转成 Point2f 给 pointPolygonTest 用
+            std::vector<cv::Point2f> contour_f;
+            contour_f.reserve(observed.size());
+            for (const auto &p : observed)
             {
-                const double dx =
-                    projected[i].x -
-                    static_cast<double>(
-                        observed[i].x);
-
-                const double dy =
-                    projected[i].y -
-                    static_cast<double>(
-                        observed[i].y);
-
-                total +=
-                    std::sqrt(
-                        dx * dx +
-                        dy * dy);
+                contour_f.emplace_back(
+                    static_cast<float>(p.x),
+                    static_cast<float>(p.y));
             }
 
-            return total /
-                   static_cast<double>(count);
+            // 每个投影顶点到观测轮廓的最短距离，取平均
+            // （几何意义：模型套到图像上后，顶点偏离真实轮廓多远）
+            double total = 0.0;
+            for (const auto &pt : projected)
+            {
+                // pointPolygonTest 返回带符号距离，abs 取绝对值
+                double dist = std::abs(
+                    cv::pointPolygonTest(contour_f, pt, true));
+                total += dist;
+            }
+
+            return total / static_cast<double>(projected.size());
         }
 
         /*
@@ -143,6 +187,9 @@ namespace mark
                     polygonResidual(
                         projected,
                         component.contour_);
+
+                // debug
+                // std::cerr << "[DEBUG] residual: " << residual << " max: " << max_residual << std::endl;
 
                 if (residual > max_residual)
                 {

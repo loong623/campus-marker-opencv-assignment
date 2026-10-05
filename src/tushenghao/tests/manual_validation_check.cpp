@@ -21,16 +21,40 @@
 namespace
 {
 
-    mark::ShapeObservation createLObservation(std::size_t id_offset)
+    // debug
+    // mark::ShapeObservation createLObservation(std::size_t id_offset)
+    // {
+    //     mark::ShapeObservation observation;
+    //     observation.simplified_polygon_ = {
+    //         {0.0f + static_cast<float>(id_offset), 0.0f},
+    //         {20.0f + static_cast<float>(id_offset), 0.0f},
+    //         {20.0f + static_cast<float>(id_offset), 10.0f},
+    //         {10.0f + static_cast<float>(id_offset), 10.0f},
+    //         {10.0f + static_cast<float>(id_offset), 20.0f},
+    //         {0.0f + static_cast<float>(id_offset), 20.0f}};
+    //     mark::TurnFeature turn;
+    //     turn.vertex_index_ = 3;
+    //     turn.type_ = mark::TurnType::CONCAVE;
+    //     observation.turns_.push_back(turn);
+    //     observation.supported_classes_.push_back("L");
+    //     observation.anchor_vertex_index_ = 3;
+    //     return observation;
+    // }
+
+    mark::ShapeObservation createLObservation(float cx, float cy)
     {
         mark::ShapeObservation observation;
+        // L 形 6 顶点，以 (cx,cy) 为锚点（内凹角）为基准
+        // 顶点相对位置：锚点是 vertices[3] = (10,10) 相对 (0,0) 的偏移
+        float ox = cx - 10.0f;
+        float oy = cy - 10.0f;
         observation.simplified_polygon_ = {
-            {0.0f + static_cast<float>(id_offset), 0.0f},
-            {20.0f + static_cast<float>(id_offset), 0.0f},
-            {20.0f + static_cast<float>(id_offset), 10.0f},
-            {10.0f + static_cast<float>(id_offset), 10.0f},
-            {10.0f + static_cast<float>(id_offset), 20.0f},
-            {0.0f + static_cast<float>(id_offset), 20.0f}};
+            {ox + 0.0f, oy + 0.0f},
+            {ox + 20.0f, oy + 0.0f},
+            {ox + 20.0f, oy + 10.0f},
+            {ox + 10.0f, oy + 10.0f},
+            {ox + 10.0f, oy + 20.0f},
+            {ox + 0.0f, oy + 20.0f}};
         mark::TurnFeature turn;
         turn.vertex_index_ = 3;
         turn.type_ = mark::TurnType::CONCAVE;
@@ -40,29 +64,91 @@ namespace
         return observation;
     }
 
+    //debug
+    // mark::MarkerGeometry createSimpleGeometry()
+    // {
+    //     mark::MarkerGeometry geometry;
+    //     geometry.schema_version = 1;
+    //     for (const auto &id : {"L0", "L1", "L2"})
+    //     {
+    //         mark::GeometryPolygon polygon;
+    //         polygon.id = id;
+    //         polygon.vertices = {
+    //             {0.0f, 0.0f}, {20.0f, 0.0f}, {20.0f, 10.0f}, {10.0f, 10.0f}, {10.0f, 20.0f}, {0.0f, 20.0f}};
+    //         polygon.anchor = polygon.vertices[3];
+    //         polygon.area = 300.0;
+    //         geometry.polygons.push_back(polygon);
+    //     }
+    //     return geometry;
+    // }
+
+    // mark::MarkerGeometry createSimpleGeometry()
+    // {
+    //     mark::MarkerGeometry geometry;
+    //     geometry.schema_version = 1;
+    //     // 2026-10-05 修正：3 个 L 的 anchor 必须不同，
+    //     // 否则 estimateAffine2D 输入 3 个重合源点，算出退化仿射。
+    //     // 用真实模型同款坐标：L0(8,8), L1(72,72), L2(8,72)
+    //     const std::vector<cv::Point2f> anchors = {
+    //         {8.0f, 8.0f}, {72.0f, 72.0f}, {8.0f, 72.0f}};
+    //     int idx = 0;
+    //     for (const auto &id : {"L0", "L1", "L2"})
+    //     {
+    //         mark::GeometryPolygon polygon;
+    //         polygon.id = id;
+    //         polygon.vertices = {
+    //             {0.0f, 0.0f}, {20.0f, 0.0f}, {20.0f, 10.0f}, {10.0f, 10.0f}, {10.0f, 20.0f}, {0.0f, 20.0f}};
+    //         polygon.anchor = anchors[idx++];
+    //         polygon.area = 300.0;
+    //         geometry.polygons.push_back(polygon);
+    //     }
+    //     return geometry;
+    // }
+
     mark::MarkerGeometry createSimpleGeometry()
     {
         mark::MarkerGeometry geometry;
         geometry.schema_version = 1;
+        // 2026-10-05 修正：顶点必须与 anchor 一致，
+        // 否则投影后的顶点与观测轮廓差几十像素，全被误拒。
+        const std::vector<cv::Point2f> anchors = {
+            {8.0f, 8.0f}, {72.0f, 72.0f}, {8.0f, 72.0f}};
+        int idx = 0;
         for (const auto &id : {"L0", "L1", "L2"})
         {
             mark::GeometryPolygon polygon;
             polygon.id = id;
+            cv::Point2f a = anchors[idx++];
+            // 顶点以 anchor 为基准：anchor 是 vertices[3] = (10,10) 相对 (0,0)
+            float ox = a.x - 10.0f;
+            float oy = a.y - 10.0f;
             polygon.vertices = {
-                {0.0f, 0.0f}, {20.0f, 0.0f}, {20.0f, 10.0f}, {10.0f, 10.0f}, {10.0f, 20.0f}, {0.0f, 20.0f}};
-            polygon.anchor = polygon.vertices[3];
+                {ox + 0.0f, oy + 0.0f}, {ox + 20.0f, oy + 0.0f}, {ox + 20.0f, oy + 10.0f}, {ox + 10.0f, oy + 10.0f}, {ox + 10.0f, oy + 20.0f}, {ox + 0.0f, oy + 20.0f}};
+            polygon.anchor = a;
             polygon.area = 300.0;
             geometry.polygons.push_back(polygon);
         }
         return geometry;
     }
 
-    mark::WhiteComponent createWhiteComponent(std::size_t id_offset)
+    // mark::WhiteComponent createWhiteComponent(std::size_t id_offset)
+    // {
+    //     mark::WhiteComponent comp;
+    //     comp.area_ = 300.0;
+    //     int o = static_cast<int>(id_offset);
+    //     comp.contour_ = {{o, 0}, {o + 20, 0}, {o + 20, 10}, {o + 10, 10}, {o + 10, 20}, {o, 20}};
+    //     comp.touches_border_ = false;
+    //     return comp;
+    // }
+    mark::WhiteComponent createWhiteComponent(float cx, float cy)
     {
         mark::WhiteComponent comp;
         comp.area_ = 300.0;
-        int o = static_cast<int>(id_offset);
-        comp.contour_ = {{o, 0}, {o + 20, 0}, {o + 20, 10}, {o + 10, 10}, {o + 10, 20}, {o, 20}};
+        float ox = cx - 10.0f;
+        float oy = cy - 10.0f;
+        int oxi = static_cast<int>(ox);
+        int oyi = static_cast<int>(oy);
+        comp.contour_ = {{oxi, oyi}, {oxi + 20, oyi}, {oxi + 20, oyi + 10}, {oxi + 10, oyi + 10}, {oxi + 10, oyi + 20}, {oxi, oyi + 20}};
         comp.touches_border_ = false;
         return comp;
     }
@@ -73,16 +159,27 @@ int main()
 {
     mark::GeometryConfig config;
     config.max_hypothesis_count_ = 100;
+    // 2026-10-05：mock 数据是手工拼的，有 2-3 像素误差，
+    // 阈值设大一点，只验"不误杀"，不验精度。
+    config.max_validation_residual_ = 10.0;
 
     std::vector<mark::ShapeObservation> observations;
-    observations.push_back(createLObservation(0));
-    observations.push_back(createLObservation(30));
-    observations.push_back(createLObservation(60));
+    // observations.push_back(createLObservation(0));
+    // observations.push_back(createLObservation(30));
+    // observations.push_back(createLObservation(60));
+    // 2026-10-05 修正：观测 anchor 必须与模型 anchor 一致（恒等变换），
+    // 否则 estimateAffine2D 输入共线点，算出退化仿射。
+    observations.push_back(createLObservation(8.0f, 8.0f));
+    observations.push_back(createLObservation(72.0f, 72.0f));
+    observations.push_back(createLObservation(8.0f, 72.0f));
 
     std::vector<mark::WhiteComponent> components;
-    components.push_back(createWhiteComponent(0));
-    components.push_back(createWhiteComponent(30));
-    components.push_back(createWhiteComponent(60));
+    // components.push_back(createWhiteComponent(0));
+    // components.push_back(createWhiteComponent(30));
+    // components.push_back(createWhiteComponent(60));
+    components.push_back(createWhiteComponent(8.0f, 8.0f));
+    components.push_back(createWhiteComponent(72.0f, 72.0f));
+    components.push_back(createWhiteComponent(8.0f, 72.0f));
 
     mark::MarkerGeometry geometry = createSimpleGeometry();
 

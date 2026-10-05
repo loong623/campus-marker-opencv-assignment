@@ -4,7 +4,8 @@ Block 5 的豪华版debug是运行时诊断系统：在线记录、序列化、�
 平时调代码、回归测试 → 用 decode_audit（轻便）
 系统跑起来要分析性能、存日志 → 用 Block 5 的（正式）
 */
-// 换视频不用改代码，直接换视频路径（命令行参数，目前是相对路径，有cwd依赖，以后有需要再修），只有换输入源类型才要动（比如从视频文件改成摄像头实时流，那要改 cv::VideoCapture 的打开方式）
+// 换视频不用改代码，直接换视频路径（命令行参数，目前是相对路径，有cwd依赖，以后有需要再修,修好了），只有换输入源类型才要动（比如从视频文件改成摄像头实时流，那要改 cv::VideoCapture 的打开方式）
+// 命令格式：./build/tushenghao/decode_audit <视频路径> [帧号列表]
 #include <iostream>
 #include <sstream>
 #include <string>

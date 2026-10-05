@@ -86,6 +86,9 @@ namespace mark
 
         resource_truncated = false;
 
+        // debug
+        // std::cerr << "[DEBUG] model polygons: " << model_geometry.polygons.size() << std::endl;
+
         /*
          * 找模型中的三个 L。
          *
@@ -293,6 +296,9 @@ namespace mark
                         [vertex_index]);
         }
 
+        // debug
+        // std::cerr << "[DEBUG] affine points: " << model_points.size() << std::endl;
+
         /*
          * 二维仿射至少需要三个点。
          */
@@ -300,6 +306,11 @@ namespace mark
         {
             return cv::Mat();
         }
+
+        // debug
+        // cv::Mat result = cv::estimateAffine2D(model_points, image_points);
+        // std::cerr << "[DEBUG] affine empty: " << result.empty() << std::endl;
+        // return result;
 
         return cv::estimateAffine2D(
             model_points,

@@ -132,29 +132,92 @@ namespace mark
          * 找不到说明：
          * 假设认为存在的结构，没有对应图像证据。
          */
+        // const WhiteComponent *find_component(
+        //     const PreparedFrame &frame,
+        //     const GeometryHypothesis &hypothesis,
+        //     const std::string &model_part_id)
+        // {
+        //     for (const auto &assignment : hypothesis.assignments_)
+        //     {
+        //         if (assignment.model_part_id_ != model_part_id)
+        //         {
+        //             continue;
+        //         }
+
+        //         for (const auto &component : frame.components_)
+        //         {
+        //             if (component.component_id_ ==
+        //                 assignment.component_id_)
+        //             {
+        //                 return &component;
+        //             }
+        //         }
+        //     }
+
+        //     return nullptr;
+        // }
         const WhiteComponent *find_component(
             const PreparedFrame &frame,
             const GeometryHypothesis &hypothesis,
+            const MarkerGeometry &model,
             const std::string &model_part_id)
         {
+            // 1. 先在 hypothesis 的 assignment 里找（L0/L2/L3 走这里）
             for (const auto &assignment : hypothesis.assignments_)
             {
                 if (assignment.model_part_id_ != model_part_id)
                 {
                     continue;
                 }
-
                 for (const auto &component : frame.components_)
                 {
-                    if (component.component_id_ ==
-                        assignment.component_id_)
+                    if (component.component_id_ == assignment.component_id_)
                     {
                         return &component;
                     }
                 }
             }
 
-            return nullptr;
+            // 2. 2026-10-05 补充：
+            // M1 不在 3-L 假设里，但它在图像里真实存在。
+            // 用 affine 把模型 M1 的 anchor 投影到图像，
+            // 找质心最近的白块（用观测证据，不猜点）。
+            const GeometryPolygon *poly = nullptr;
+            for (const auto &p : model.polygons)
+            {
+                if (p.id == model_part_id)
+                {
+                    poly = &p;
+                    break;
+                }
+            }
+            if (poly == nullptr)
+            {
+                return nullptr;
+            }
+            // 投影 anchor
+            double ax = hypothesis.affine_transform_.at<double>(0, 0) * poly->anchor.x +
+                        hypothesis.affine_transform_.at<double>(0, 1) * poly->anchor.y +
+                        hypothesis.affine_transform_.at<double>(0, 2);
+            double ay = hypothesis.affine_transform_.at<double>(1, 0) * poly->anchor.x +
+                        hypothesis.affine_transform_.at<double>(1, 1) * poly->anchor.y +
+                        hypothesis.affine_transform_.at<double>(1, 2);
+            const WhiteComponent *best = nullptr;
+            double best_dist = 1e18;
+            for (const auto &c : frame.components_)
+            {
+                // 用包围盒中心近似质心
+                cv::Rect bb = cv::boundingRect(c.contour_);
+                double cx = bb.x + bb.width * 0.5;
+                double cy = bb.y + bb.height * 0.5;
+                double d = (cx - ax) * (cx - ax) + (cy - ay) * (cy - ay);
+                if (d < best_dist)
+                {
+                    best_dist = d;
+                    best = &c;
+                }
+            }
+            return best;
         }
 
         /**
@@ -712,10 +775,16 @@ namespace mark
              * contour 必须来自 PreparedFrame，
              * 不允许用模型投影替代。
              */
-            const auto *component =
+            // const auto *component =
+            //     find_component(
+            //         frame,
+            //         hypothesis,
+            //         binding->polygon_id_);
+            const WhiteComponent *component =
                 find_component(
                     frame,
                     hypothesis,
+                    model,
                     binding->polygon_id_);
 
             if (component == nullptr)
