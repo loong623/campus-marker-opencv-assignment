@@ -22,6 +22,7 @@ add_library(mark_detector
     corner_resolver.cpp
     screen_order.cpp
     semantic_resolver.cpp
+    detection_validator.cpp
 )
 
 target_include_directories(mark_detector
@@ -169,3 +170,8 @@ add_test(
 add_executable(semantic_resolver_test tests/semantic_resolver_test.cpp)
 target_link_libraries(semantic_resolver_test PRIVATE mark_detector GTest::gtest GTest::gtest_main)
 add_test(NAME semantic_resolver_test COMMAND semantic_resolver_test)
+
+# Step 6 几何校验测试：验证 validateDetectionGeometry() 的凸性、自交、映射、越界、退化拒绝
+add_executable(detection_validator_test tests/detection_validator_test.cpp)
+target_link_libraries(detection_validator_test PRIVATE mark_detector GTest::gtest GTest::gtest_main)
+add_test(NAME detection_validator_test COMMAND detection_validator_test)
