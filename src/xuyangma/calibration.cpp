@@ -1,7 +1,7 @@
 #include "calibration.hpp"
 #include <iostream>
 #include <vector>
-// camera calibration using circle grid
+// calibrate using symmetric circle grid
 bool calibrateCameraFromVideo(const std::string& videoPath,int boardCols,int boardRows,double pointSpacing,const std::string& outputPath){
     if(boardCols<=0||boardRows<=0||pointSpacing<=0){
         std::cerr<<"Invalid calibration parameters."<<std::endl;
@@ -82,8 +82,25 @@ bool calibrateCameraFromVideo(const std::string& videoPath,int boardCols,int boa
         rvecs,
         tvecs
     );
+    double meanReprojectionError=0.0;
+    for(size_t i=0;i<objectPoints.size();i++){
+        std::vector<cv::Point2f> projected;
+        cv::projectPoints(
+            objectPoints[i],
+            rvecs[i],
+            tvecs[i],
+            cameraMatrix,
+            distCoeffs,
+            projected
+        );
+        double error=cv::norm(imagePoints[i],projected,cv::NORM_L2);
+        error/=std::sqrt(static_cast<double>(projected.size()));
+        meanReprojectionError+=error;
+    }
+    meanReprojectionError/=objectPoints.size();
     std::cout<<"Calibration frames: "<<imagePoints.size()<<std::endl;
     std::cout<<"RMS error: "<<rms<<std::endl;
+    std::cout<<"Mean reprojection error: "<<meanReprojectionError<<" px"<<std::endl;
     std::cout<<"Camera matrix:"<<std::endl;
     std::cout<<cameraMatrix<<std::endl;
     std::cout<<"Distortion coefficients:"<<std::endl;
@@ -100,14 +117,15 @@ bool calibrateCameraFromVideo(const std::string& videoPath,int boardCols,int boa
     fs<<"board_cols"<<boardCols;
     fs<<"board_rows"<<boardRows;
     fs<<"point_spacing"<<pointSpacing;
-    fs<<"pattern"<<"circles";
+    fs<<"pattern"<<"symmetric_circles";
     fs<<"rms_error"<<rms;
+    fs<<"mean_reprojection_error"<<meanReprojectionError;
     fs<<"used_frames"<<usedFrames;
     fs.release();
     std::cout<<"Calibration saved to: "<<outputPath<<std::endl;
     return true;
 }
-// load calibration data
+// load calibration
 bool loadCalibration(const std::string& path,CalibrationData& data){
     cv::FileStorage fs(path,cv::FileStorage::READ);
     if(!fs.isOpened()){
@@ -128,7 +146,7 @@ bool loadCalibration(const std::string& path,CalibrationData& data){
     }
     return true;
 }
-// estimate marker pose
+// estimate pose
 bool estimatePose(const Quad& corners,const cv::Mat& cameraMatrix,const cv::Mat& distCoeffs,double markerSize,cv::Mat& rvec,cv::Mat& tvec,double& reprojectionError){
     if(markerSize<=0){
         return false;
@@ -166,18 +184,18 @@ bool estimatePose(const Quad& corners,const cv::Mat& cameraMatrix,const cv::Mat&
     if(!success){
         return false;
     }
-    std::vector<cv::Point2f> projectedPoints;
+    std::vector<cv::Point2f> projected;
     cv::projectPoints(
         objectPoints,
         rvec,
         tvec,
         cameraMatrix,
         distCoeffs,
-        projectedPoints
+        projected
     );
     reprojectionError=0.0;
     for(int i=0;i<4;i++){
-        reprojectionError+=cv::norm(imagePoints[i]-projectedPoints[i]);
+        reprojectionError+=cv::norm(imagePoints[i]-projected[i]);
     }
     reprojectionError/=4.0;
     return true;
@@ -188,7 +206,7 @@ void drawPoseAxes(cv::Mat& frame,const cv::Mat& cameraMatrix,const cv::Mat& dist
         cv::Point3f(0,0,0),
         cv::Point3f(static_cast<float>(axisLength),0,0),
         cv::Point3f(0,static_cast<float>(axisLength),0),
-        cv::Point3f(0,0,static_cast<float>(-axisLength))
+        cv::Point3f(0,0,static_cast<float>(axisLength))
     };
     std::vector<cv::Point2f> imagePoints;
     cv::projectPoints(

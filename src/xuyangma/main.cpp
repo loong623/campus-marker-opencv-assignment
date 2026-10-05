@@ -6,14 +6,14 @@
 #include <string>
 #include "detector.hpp"
 #include "calibration.hpp"
-// print command help
+// print commands
 void printUsage(){
     std::cout<<"Usage:"<<std::endl;
-    std::cout<<"Normal detection:"<<std::endl;
+    std::cout<<"Detection:"<<std::endl;
     std::cout<<"./marker_detector [input_video] [output_video]"<<std::endl;
-    std::cout<<"Camera calibration:"<<std::endl;
+    std::cout<<"Calibration:"<<std::endl;
     std::cout<<"./marker_detector --calibrate <video> <cols> <rows> <point_spacing_m> <output_yaml>"<<std::endl;
-    std::cout<<"Pose estimation:"<<std::endl;
+    std::cout<<"Pose:"<<std::endl;
     std::cout<<"./marker_detector --pose <video> <calibration_yaml> <marker_size_m> [output_video]"<<std::endl;
 }
 // open video or camera
@@ -29,7 +29,7 @@ bool openInput(const std::string& inputPath,cv::VideoCapture& cap){
     }
     return true;
 }
-// run marker detection
+// run detector
 int runDetection(const std::string& inputPath,const std::string& outputPath,bool usePose,const CalibrationData& calibration,double markerSize){
     cv::VideoCapture cap;
     if(!openInput(inputPath,cap)){
@@ -55,7 +55,12 @@ int runDetection(const std::string& inputPath,const std::string& outputPath,bool
     }
     cv::VideoWriter writer;
     if(!outputPath.empty()){
-        writer.open(outputPath,cv::VideoWriter::fourcc('M','J','P','G'),fps,cv::Size(width,height));
+        writer.open(
+            outputPath,
+            cv::VideoWriter::fourcc('M','J','P','G'),
+            fps,
+            cv::Size(width,height)
+        );
         if(!writer.isOpened()){
             std::cerr<<"Cannot open output video."<<std::endl;
             return 1;
@@ -68,6 +73,11 @@ int runDetection(const std::string& inputPath,const std::string& outputPath,bool
     while(cap.read(frame)){
         Quad corners;
         bool detected=detectMarker(frame,corners);
+        if(detected&&hasPrevious){
+            if(!isTemporallyConsistent(corners,previousCorners,frame.size())){
+                detected=false;
+            }
+        }
         if(detected){
             if(hasPrevious){
                 smoothCorners(corners,previousCorners,frame.size());
@@ -83,9 +93,24 @@ int runDetection(const std::string& inputPath,const std::string& outputPath,bool
                 cv::Mat rvec;
                 cv::Mat tvec;
                 double reprojectionError=0.0;
-                bool poseSuccess=estimatePose(corners,calibration.cameraMatrix,calibration.distCoeffs,markerSize,rvec,tvec,reprojectionError);
+                bool poseSuccess=estimatePose(
+                    corners,
+                    calibration.cameraMatrix,
+                    calibration.distCoeffs,
+                    markerSize,
+                    rvec,
+                    tvec,
+                    reprojectionError
+                );
                 if(poseSuccess){
-                    drawPoseAxes(frame,calibration.cameraMatrix,calibration.distCoeffs,rvec,tvec,markerSize*0.5);
+                    drawPoseAxes(
+                        frame,
+                        calibration.cameraMatrix,
+                        calibration.distCoeffs,
+                        rvec,
+                        tvec,
+                        markerSize*0.5
+                    );
                     double x=tvec.at<double>(0,0);
                     double y=tvec.at<double>(1,0);
                     double z=tvec.at<double>(2,0);
@@ -148,7 +173,13 @@ int main(int argc,char** argv){
         std::cout<<"Calibration pattern: symmetric circles grid"<<std::endl;
         std::cout<<"Grid size: "<<boardCols<<" x "<<boardRows<<std::endl;
         std::cout<<"Point spacing: "<<pointSpacing<<" m"<<std::endl;
-        bool success=calibrateCameraFromVideo(videoPath,boardCols,boardRows,pointSpacing,outputPath);
+        bool success=calibrateCameraFromVideo(
+            videoPath,
+            boardCols,
+            boardRows,
+            pointSpacing,
+            outputPath
+        );
         return success?0:1;
     }
     if(argc>=2&&std::string(argv[1])=="--pose"){
@@ -167,7 +198,13 @@ int main(int argc,char** argv){
         if(!loadCalibration(calibrationPath,calibration)){
             return 1;
         }
-        return runDetection(videoPath,outputPath,true,calibration,markerSize);
+        return runDetection(
+            videoPath,
+            outputPath,
+            true,
+            calibration,
+            markerSize
+        );
     }
     std::string inputPath="data/raw/marker_video.avi";
     std::string outputPath="";
@@ -182,5 +219,11 @@ int main(int argc,char** argv){
         return 1;
     }
     CalibrationData emptyCalibration;
-    return runDetection(inputPath,outputPath,false,emptyCalibration,0.0);
+    return runDetection(
+        inputPath,
+        outputPath,
+        false,
+        emptyCalibration,
+        0.0
+    );
 }
