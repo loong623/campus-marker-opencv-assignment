@@ -1,4 +1,5 @@
 #include <opencv2/opencv.hpp>
+#include <algorithm>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -11,9 +12,9 @@ void printUsage(){
     std::cout<<"Normal detection:"<<std::endl;
     std::cout<<"./marker_detector [input_video] [output_video]"<<std::endl;
     std::cout<<"Camera calibration:"<<std::endl;
-    std::cout<<"./marker_detector --calibrate <video> <cols> <rows> <square_size> <output_yaml>"<<std::endl;
+    std::cout<<"./marker_detector --calibrate <video> <cols> <rows> <point_spacing_m> <output_yaml>"<<std::endl;
     std::cout<<"Pose estimation:"<<std::endl;
-    std::cout<<"./marker_detector --pose <video> <calibration_yaml> <marker_size> [output_video]"<<std::endl;
+    std::cout<<"./marker_detector --pose <video> <calibration_yaml> <marker_size_m> [output_video]"<<std::endl;
 }
 // open video or camera
 bool openInput(const std::string& inputPath,cv::VideoCapture& cap){
@@ -50,7 +51,7 @@ int runDetection(const std::string& inputPath,const std::string& outputPath,bool
                 return 1;
             }
         }
-        std::cout<<"Pose unit is the same as marker_size."<<std::endl;
+        std::cout<<"Pose unit: meter"<<std::endl;
     }
     cv::VideoWriter writer;
     if(!outputPath.empty()){
@@ -90,18 +91,20 @@ int runDetection(const std::string& inputPath,const std::string& outputPath,bool
                     double z=tvec.at<double>(2,0);
                     double distance=cv::norm(tvec);
                     std::ostringstream poseText;
-                    poseText<<std::fixed<<std::setprecision(1);
-                    poseText<<"X="<<x<<" Y="<<y<<" Z="<<z;
+                    poseText<<std::fixed<<std::setprecision(3);
+                    poseText<<"X="<<x<<"m Y="<<y<<"m Z="<<z<<"m";
                     cv::putText(frame,poseText.str(),cv::Point(30,90),cv::FONT_HERSHEY_SIMPLEX,0.7,cv::Scalar(255,255,255),2);
                     std::ostringstream distanceText;
-                    distanceText<<std::fixed<<std::setprecision(1);
-                    distanceText<<"Distance="<<distance;
+                    distanceText<<std::fixed<<std::setprecision(3);
+                    distanceText<<"Distance="<<distance<<"m";
                     cv::putText(frame,distanceText.str(),cv::Point(30,120),cv::FONT_HERSHEY_SIMPLEX,0.7,cv::Scalar(255,255,255),2);
                     std::ostringstream errorText;
                     errorText<<std::fixed<<std::setprecision(2);
                     errorText<<"Reprojection error="<<reprojectionError<<" px";
                     cv::putText(frame,errorText.str(),cv::Point(30,150),cv::FONT_HERSHEY_SIMPLEX,0.6,cv::Scalar(255,255,255),2);
-                    std::cout<<"Pose X="<<x<<" Y="<<y<<" Z="<<z<<" Distance="<<distance<<" Error="<<reprojectionError<<" px"<<std::endl;
+                    std::cout<<std::fixed<<std::setprecision(3);
+                    std::cout<<"Pose X="<<x<<"m Y="<<y<<"m Z="<<z<<"m Distance="<<distance<<"m ";
+                    std::cout<<std::setprecision(2)<<"Error="<<reprojectionError<<" px"<<std::endl;
                 }else{
                     cv::putText(frame,"POSE FAILED",cv::Point(30,90),cv::FONT_HERSHEY_SIMPLEX,0.7,cv::Scalar(0,0,255),2);
                 }
@@ -140,9 +143,12 @@ int main(int argc,char** argv){
         std::string videoPath=argv[2];
         int boardCols=std::stoi(argv[3]);
         int boardRows=std::stoi(argv[4]);
-        double squareSize=std::stod(argv[5]);
+        double pointSpacing=std::stod(argv[5]);
         std::string outputPath=argv[6];
-        bool success=calibrateCameraFromVideo(videoPath,boardCols,boardRows,squareSize,outputPath);
+        std::cout<<"Calibration pattern: symmetric circles grid"<<std::endl;
+        std::cout<<"Grid size: "<<boardCols<<" x "<<boardRows<<std::endl;
+        std::cout<<"Point spacing: "<<pointSpacing<<" m"<<std::endl;
+        bool success=calibrateCameraFromVideo(videoPath,boardCols,boardRows,pointSpacing,outputPath);
         return success?0:1;
     }
     if(argc>=2&&std::string(argv[1])=="--pose"){
