@@ -20,6 +20,7 @@ add_library(mark_detector
     geometry_observation.cpp
     geometry_validation.cpp
     corner_resolver.cpp
+    screen_order.cpp
 )
 
 target_include_directories(mark_detector
@@ -143,3 +144,22 @@ target_link_libraries(
 add_test(
     NAME corner_resolver_test
     COMMAND corner_resolver_test)
+
+# Step 4 屏幕顺序测试：验证 orderScreenCorners() 的排序、平局、退化拒绝
+add_executable(
+    screen_order_test
+    tests/screen_order_test.cpp
+)
+
+target_link_libraries(
+    screen_order_test
+    PRIVATE
+    mark_detector
+    GTest::gtest
+    GTest::gtest_main
+)
+
+add_test(
+    NAME screen_order_test
+    COMMAND screen_order_test
+)

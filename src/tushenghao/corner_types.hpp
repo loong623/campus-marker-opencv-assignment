@@ -412,4 +412,18 @@ namespace mark
         std::string rejection_reason_;
     };
 
+    struct CornerConfig; // 前向声明，定义在 detector_config.hpp(避免循环引用)
+
+    /**
+     * @brief 将物理角点转换成屏幕顺序（Block 3 Step 4）。
+     *
+     * 输入 physical_corners[0..3] 固定为 P0~P3 物理身份，
+     * 输出屏幕顺序 LT/RT/RB/LB 及 physical_to_screen 映射。
+     *
+     * config 当前无排序参数，保留接口以保证 Block 3 API 一致。
+     */
+    ScreenOrderResult orderScreenCorners(
+        const std::array<cv::Point2d, 4> &physical_corners,
+        const CornerConfig &config);
+
 } // namespace mark
