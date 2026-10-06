@@ -1,0 +1,2 @@
+duplicate option: --display
+运行结果：失败；未映射原因（duplicate option: --display）

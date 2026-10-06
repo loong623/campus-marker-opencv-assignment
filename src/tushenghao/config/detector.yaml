@@ -105,6 +105,10 @@ temporal:
 
 # 要不要弹窗显示
 output:
+  expected_frame_count: 0
+  video_fourcc: "MJPG"
+  video_filename: "overlay.mp4"
+  display_probe_timeout_ms: 3000
   show_window: 0
   show_held_state: 0
 

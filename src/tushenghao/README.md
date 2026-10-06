@@ -1,4 +1,4 @@
-# MARK 检测实现（Block4已完成，限批准范围）
+# MARK 检测实现（Block3/4/5 与 Final-fixes）
 
 当前内部阶段的 C、H 均为720/720；冻结v7全视频1676帧中864帧产生Detection。Block4稳定与独立文字桥接已实现；G-B已批准r=2px、偏离=2px，生产已落地；公共 `Detector::process()` 按当前可信测量正常返回 `DETECTED/NOT_DETECTED`，缺预算仍 `NOT_READY`，关闭平滑也不能绕过。视频未标注，检出数量不代表正确率；V按用户决定暂时跳过。
 
@@ -18,7 +18,7 @@ src/tushenghao/
 │   └── pipeline/            # decode、三状态稳定/桥接与公共装配
 ├── app/main.cpp             # 配置检查应用入口
 ├── test_support/            # Block3像素fixture与Block4语义序列fixture
-├── tests/                   # 19个测试程序及固定反例data/
+├── tests/                   # 23个测试程序及固定反例data/
 ├── tools/
 │   ├── audit/               # 当前帧/全视频阶段审计
 │   ├── common/              # 工具共用摘要头
@@ -32,7 +32,20 @@ src/tushenghao/
 
 ## 构建与测试
 
-从仓库根目录执行，需要C++17、CMake、OpenCV和OpenSSL；独立fixture工具另需nlohmann_json。主检测库不直接依赖JSON/OpenSSL，不使用GTest。
+从仓库根目录执行，需要 C++17、CMake ≥3.16、OpenCV 和 OpenSSL。
+当前环境为 Ubuntu 24.04、GCC 13.3、CMake 3.28.3、OpenCV 4.6、OpenSSL 3.0.13；
+这些版本是本轮实测环境，不代表所有版本均通过。
+
+```bash
+sudo apt-get update
+sudo apt-get install --no-install-recommends build-essential cmake libopencv-dev libssl-dev
+# 仅需要 JSON 头文件的独立工具使用；当前 Detector 不必安装：
+sudo apt-get install --no-install-recommends nlohmann-json3-dev
+# 可选的视频编码检查工具 ffprobe，App 运行不依赖它：
+sudo apt-get install --no-install-recommends ffmpeg
+```
+
+独立fixture工具另需nlohmann_json。主检测库不直接依赖JSON/OpenSSL，不使用GTest。
 
 ```bash
 cmake -S src/tushenghao -B build/tushenghao -DCMAKE_BUILD_TYPE=Release -DMARK_COMMIT_LABEL=08c5c44
@@ -41,7 +54,7 @@ ctest --test-dir build/tushenghao --output-on-failure
 build/tushenghao/marker_app --check-config
 ```
 
-配置check只验证加载/校验/构造，不表示检测或稳定层验收完成。注册19个CTest程序（旧16+新3）；新增Block3检查在Release也主动报告失败，既有部分assert测试在Release的覆盖限制保留。
+配置check只验证加载/校验/构造，不表示检测或稳定层验收完成。当前注册23个CTest程序；新增Block3检查在Release也主动报告失败，既有部分assert测试在Release的覆盖限制保留。
 
 独立工具的构建入口、目标名保持不变：
 
@@ -127,8 +140,8 @@ cmake --build build/block5 -j 4
 ctest --test-dir build/block5 --output-on-failure
 build/block5/marker_app --check-config --config src/tushenghao/config/detector.yaml
 build/block5/marker_app --video data/raw/marker_video.avi --config src/tushenghao/config/detector.yaml --run-dir new-runs/baseline --mode baseline
-build/block5/marker_app --video data/raw/marker_video.avi --config src/tushenghao/docs/evidence/block5/environment/debug_config.yaml --run-dir new-runs/debug --mode debug
-build/block5/marker_app --video data/raw/marker_video.avi --config src/tushenghao/docs/evidence/block5/environment/verification_config.yaml --run-dir new-runs/verification --mode debug --run-purpose verification
+build/block5/marker_app --video data/raw/marker_video.avi --config src/tushenghao/config/detector_debug.yaml --run-dir new-runs/debug --mode debug
+build/block5/marker_app --video data/raw/marker_video.avi --config src/tushenghao/config/detector_verification.yaml --run-dir new-runs/verification --mode debug --run-purpose verification
 build/block5/geometry_audit --video data/raw/marker_video.avi --config src/tushenghao/config/detector.yaml --run-dir new-runs/geometry
 build/block5/decode_audit data/raw/marker_video.avi all src/tushenghao/config/detector.yaml --run-dir new-runs/decode
 build/block5/temporal_audit --video data/raw/marker_video.avi --config src/tushenghao/config/detector.yaml --run-dir new-runs/temporal
@@ -137,12 +150,73 @@ build/block5/observability_verify --compare src/tushenghao/docs/evidence/block5/
 build/block5/observability_verify --check-archive src/tushenghao/docs/evidence/block5 --report /tmp/block5-archive-check.json
 ```
 
-从任意CWD执行时，将程序、video、config、run-dir参数替换为绝对路径；模型相对路径继续相对配置目录解析。上述所有输出目录/报告必须是新路径，不能重复覆盖证据。生产无参打印帮助并非零退出。基线完整处理每帧并开启稳定，关闭GUI/等待/详情；debug采样只改变记录和证据，不能跳算法帧。配置仍为root/input/preprocess/detector/geometry/temporal/output/debug；CLI覆盖路径、唯一mode及报告用途run-purpose，最终effective_config可重载。
+从任意CWD执行时，将程序、video、config、run-dir参数替换为绝对路径；模型相对路径继续相对配置目录解析。上述所有输出目录/报告必须是新路径，不能重复覆盖证据。生产无参打印帮助并非零退出。基线完整处理每帧并开启稳定，关闭GUI/等待/详情；debug采样只改变记录和证据，不能跳算法帧。配置仍为root/input/preprocess/detector/geometry/temporal/output/debug；CLI覆盖路径、唯一mode、报告用途run-purpose及下文新参数，最终effective_config可重载。
 
 三audit使用同一schema/统计，分别运行geometry、decode、temporal实际范围，process_total保持NOT_EXECUTED。decode旧帧列表仍表示执行子集，all才全帧；temporal的`--output PATH`兼容到新`PATH.run/frames.jsonl`，原PATH只写说明，`--overwrite`也不覆盖旧归档。实验网格保留原480段×32，使用`--experiment-grid --noise-csv ... --config ... --run-dir ...`，不更改生产预算。
 
 错误先看stderr和run内FAILED.json、命令退出码；summary的incomplete/failed不能忽略。源时间戳用于算法，steady_clock用于成本；离线实时元数据null。14ms来源是用户系统目标，正式比较只用public_call的process_total，读图/绘制/等待/写盘另报。RAW/STABLE为当前图层；empty不绘旧框，unknown不回填，held仅HISTORY文字。证据详情复用原始取证，不从稳定点伪造交点。
 
-视频导出本期未实现，开启明确报错。D23原三L面积规则、D25角边绑定、一般透视/远距离/置信度仍是原范围限制。旧geometry_matcher_test的Debug assert在原基线也失败，详见[Block5验收](docs/block5_acceptance.md)，不能把Release23/23解释成该旧assert已验证。
+Block5 历史版本未实现视频导出；当前 Final-fixes 已实现，使用方法见下文。D23原三L面积规则、D25角边绑定、一般透视/远距离/置信度仍是原范围限制。旧geometry_matcher_test的Debug assert在原基线也失败，详见[Block5验收](docs/block5_acceptance.md)，不能把Release23/23解释成该旧assert已验证。
 
 本轮证据见[导航](docs/evidence/block5/INDEX.md)、[schema](docs/diagnostics_schema.md)。固定build仅四目录，任务标识匹配、必要产物归档、JSONL/hash/链接与重放核查通过后才清本任务build；旧build、视频、Block3/4归档不清理。后续重放可重新构建同路径，不能依赖被清目录中的唯一证据副本。
+
+## Final-fixes 使用与验收
+
+本轮按 A→B→C→D 完成代码及自动验证。Release 与 Debug 均为原有 23/23 个 CTest；
+历史 c7fffe4 的 Debug 22/23 是旧 matcher fixture 问题，当前正例通过真实模型与观测层构造。
+详细结果见[本轮验收](docs/final-fixes_acceptance.md)及[永久证据导航](docs/evidence/final-fixes/INDEX.md)。
+有屏显示、人工播放器确认仍待用户执行；干净 Linux 因无环境入口按用户决定记为未验证。
+
+从仓库根目录执行。输入路径由调用者提供，配置模型路径相对 YAML 所在目录解析。
+输出 run-dir 和验证 report 均须为新路径，不覆盖旧证据。
+
+```bash
+cmake -S src/tushenghao -B build/new-user -DCMAKE_BUILD_TYPE=Release -DMARK_COMMIT_LABEL=c7fffe4-final-fixes-working-tree
+cmake --build build/new-user -j4
+ctest --test-dir build/new-user --output-on-failure
+VIDEO=/absolute/path/to/marker_video.avi
+build/new-user/marker_app --check-config --config src/tushenghao/config/detector.yaml
+build/new-user/marker_app --check-config --config src/tushenghao/config/detector_debug.yaml
+build/new-user/marker_app --check-config --config src/tushenghao/config/detector_verification.yaml
+build/new-user/marker_app --video "$VIDEO" --config src/tushenghao/config/detector.yaml --mode baseline --run-dir new-runs/baseline
+build/new-user/marker_app --video "$VIDEO" --config src/tushenghao/config/detector_debug.yaml --mode debug --display --run-dir new-runs/debug
+build/new-user/marker_app --video "$VIDEO" --config src/tushenghao/config/detector_verification.yaml --mode debug --run-purpose verification --export-video --expected-frames 1676 --run-dir new-runs/verification
+build/new-user/observability_verify --check-run new-runs/verification --expected-frames 1676 --report new-runs/check-full.json
+build/new-user/observability_verify --compare src/tushenghao/docs/evidence/block5/step0/patched-baseline.jsonl new-runs/verification --expected-frames 1676 --report new-runs/regression-full.json
+build/new-user/final_fixes_verify video --input new-runs/verification/overlay.mp4 --expected-frames 1676 --width 1440 --height 1080 --report new-runs/video-readback.json
+ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,codec_tag_string,width,height,r_frame_rate,nb_frames -of json new-runs/verification/overlay.mp4
+```
+
+`--display`、`--export-video` 是 debug 模式的无值开关，baseline 冲突、重复及未知参数均拒绝。
+无 DISPLAY/WAYLAND_DISPLAY 或独立 GUI 探测进程失败时显示降级，继续离屏处理；
+有屏时 q/ESC 提前停止，保留记录及 INCOMPLETE.json，非零退出，不发布完整视频。
+探测进程与主进程隔离，Qt 初始化 abort 不会直接杀死主进程。
+
+视频固定请求 MJPG、FFmpeg 后端及 `overlay.mp4`，不静默切换编码。
+逐帧写入当前 overlay，不受详情采样间隔影响，源尺寸和源 FPS 保持一致；
+关闭 writer 并完整读回验证后才把 `.partial.mp4` 改名为 `overlay.mp4`。
+损坏输入或提前停止保留 partial。FFmpeg 在 MP4 中可把 tag 改成 mp4v；
+实际编码检查看 `codec_name=mjpeg`，不能只看 tag 或扩展名。
+源 FPS 用于媒体时间轴，不表示检测处理速度。
+
+baseline 输出 manifest/effective config/summary/run_export，不输出帧详情、窗口或视频；
+debug 采样记录，verification 全帧记录。图片仅在 export_evidence 开启时写入。
+`--expected-frames N` 必须为正整数；不指定时使用可靠的正整数容器帧数，
+无可靠元数据则完整性未验证并非零退出，提示提供期待数。
+提前 EOF、子集缺失、人工停止保留已处理帧和 INCOMPLETE.json；
+零帧和打开失败写 FAILED.json，不制造有效成功 summary。
+合法子集只声明 explicit_subset，不宣称全视频回归。
+
+终端保留原英文技术行，例如 `run=baseline-final frames=1676 fingerprint=c1785fb03a54ed25 incomplete=0`，
+随后输出中文状态、读取/处理/检测数量、范围/覆盖、完整性原因、处理平均/p95、运行总耗时及测得瓶颈。
+瓶颈仅比较四个算法阶段的已测样本均值；关闭计时或无有效样本时明确不提供该统计。
+错误定位先看退出码和 stderr，再看 FAILED.json/INCOMPLETE.json、manifest.environment 与 summary。
+帧内 Export 槽在完成补记前为 NOT_EXECUTED，实际结果以 export_timings.jsonl 关联补记；
+计时关闭为 DISABLED/null，侧表及收尾成本归 run_export。
+
+本轮实测环境与必需安装命令见上文。FFmpeg/GUI 的 OpenCV 后端属于环境条件，
+ffprobe 是可选核验工具；没有显示服务也可运行三模式。新路径复制构建使用本机依赖，
+不能据此声称已在干净 Ubuntu 验证。历史 Block3/4/5 证据与冻结参考保持原内容。
+
+输入路径不存在或 CLI/配置在创建 run 前被拒绝时，只保留退出码与 stderr，不保证有 run 目录；
+文件存在但解码器无法打开、以及已打开却零帧时，FAILED 生命周期已实跑验证，不生成成功 summary。

@@ -48,7 +48,7 @@ target_link_libraries(mark_detector_internal_headers INTERFACE mark_detector)
 add_library(mark_test_support INTERFACE)
 target_include_directories(mark_test_support INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/test_support")
 
-add_library(mark_offline app/offline_runner.cpp app/debug_renderer.cpp)
+add_library(mark_offline app/offline_runner.cpp app/debug_renderer.cpp app/input_completion.cpp app/display_session.cpp app/video_exporter.cpp app/run_console.cpp)
 target_include_directories(mark_offline PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/app")
 target_link_libraries(mark_offline PUBLIC mark_detector_internal_headers)
 add_executable(marker_app app/main.cpp)
@@ -146,3 +146,13 @@ target_link_libraries(debug_renderer_test PRIVATE mark_offline)
 
 target_include_directories(observability_integration_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tools")
 target_link_libraries(observability_integration_test PRIVATE mark_offline mark_frame_record_reader)
+
+# Qt 探测由独立 App 进程承担；所有使用离线 runner 的目标都同时构建 sibling probe。
+add_executable(marker_display_probe app/display_probe.cpp)
+target_link_libraries(marker_display_probe PRIVATE ${OpenCV_LIBS})
+foreach(MARK_APP_TARGET marker_app geometry_audit decode_audit temporal_audit observability_integration_test)
+    add_dependencies(${MARK_APP_TARGET} marker_display_probe)
+endforeach()
+add_executable(final_fixes_verify tools/validation/final_fixes_verify.cpp)
+target_include_directories(final_fixes_verify PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tools")
+target_link_libraries(final_fixes_verify PRIVATE mark_frame_record_reader mark_detector_internal_headers)

@@ -80,7 +80,8 @@ DecodeStageResult runDecodePipeline(const FrameInput& input,const DetectorConfig
 DecodeStageResult runDecodePipeline(const FrameInput& input,const DetectorConfig& config,const MarkerGeometry& model,FrameDiagnosticsContext* context) {
     DecodeStageResult result;
     if(input.image.empty()||input.image.dims!=2||input.image.type()!=CV_8UC3||input.timestamp_us<0||input.time_source!=TimestampSource::Unknown) {result.status=Status::INVALID_INPUT;result.diagnostics.push_back("INPUT_FORMAT");if(context){context->event(Stage::Preprocess,ReasonCode::InputFormat,"INPUT_FORMAT");if(context->request.scope==ExecutionScope::Geometry)context->record.geometry_scope_result="INVALID_INPUT";else context->record.result_status=result.status;}return result;}
-    if(!config.assignment_completion_||!config.corner_.observation_budget_) {
+    // 原 Geometry 审计被后续 corner 预算拦住；此处只检查几何实际消费的 assignment 预算。
+    if(!config.assignment_completion_) {
         result.diagnostics.push_back("PIPELINE_NOT_READY: assignment及原图定位预算未配置");if(context){context->event(Stage::Preprocess,ReasonCode::BudgetMissing,result.diagnostics.back());if(context->request.scope==ExecutionScope::Geometry)context->record.geometry_scope_result="NOT_READY";else context->record.result_status=result.status;}return result;
     }
     PreparedFrame prepared;
@@ -110,6 +111,13 @@ DecodeStageResult runDecodePipeline(const FrameInput& input,const DetectorConfig
         if(context->details){context->details->prepared=prepared;context->details->completed=batch;}}
     detect_timer.reset();
     if(context&&context->request.scope==ExecutionScope::Geometry){context->record.result_status.reset();context->record.geometry_scope_result="READY";return result;}
+    // Geometry 已返回；角点预算只在其消费者之前检查，公共 Detector 原生产门控保留。
+    if(!config.corner_.observation_budget_) {
+        result.diagnostics.push_back("PIPELINE_NOT_READY: assignment及原图定位预算未配置");
+        if(context){context->event(Stage::Decode,ReasonCode::BudgetMissing,result.diagnostics.back());
+            context->record.result_status=result.status;}
+        return result;
+    }
     result=decodeStage(prepared,batch,model,config.corner_,context);
     return result;
 }

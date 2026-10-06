@@ -18,7 +18,7 @@ App包围一次真正公共调用，替换内部近似total，`process_total_bou
 
 `diagnostics_construct_intervals_us`只计实际包围的context.begin、事件push和context.output区间，**不是全部诊断开销**。细节复制在对应stage和process内；未单独隔离的复制成本不猜算，不把debug−baseline称精确诊断成本。框架差额只在四算法stage与total均MEASURED时计算。runner的bookkeeping计prepare/take/指纹及关联装配实测区间。
 
-每帧导出先写frames.jsonl，Export槽仍为NOT_EXECUTED，再将实际写入耗时写到`export_timings.jsonl`，以run_id/frame_id唯一关联，汇总替换一个状态/样本。侧表自身不递归计时，其写入和finishRun摘要写入归run_export；`run_export.yaml`补全最终实测值，该补充报告自身写入不再递归计时。EOF失败read单列manifest，不算算法帧。
+每帧导出先写frames.jsonl，Export槽仍为NOT_EXECUTED，再将实际写入耗时写到`export_timings.jsonl`，以run_id/frame_id唯一关联，汇总替换一个状态/样本，计时关闭写 DISABLED/null，无实际导出保留 NOT_EXECUTED。侧表自身不递归计时，其写入和finishRun摘要写入归run_export；`run_export.yaml`补全最终实测值，该补充报告自身写入不再递归计时。EOF失败read单列manifest，不算算法帧。
 
 统计N、mean、median（偶数两项平均）、nearest-rank p95/p99、max；空统计null，首帧单列仍在全量，慢帧不删除。各stage分位不相加。14ms@1440×1080是用户系统目标，只对照公共process_total，不是作业下限或保证。
 
@@ -34,13 +34,13 @@ offline实时字段全部null，realtime.applicability=not_applicable；不制�
 
 ## 配置与指纹
 
-旧debug.timing_enabled/draw_candidates和output.show_window/show_held_state是唯一生效旧开关；新App配置存level、范围、图层、模式、输出目录、导出和回放速率。boolean只接受0/1；范围配置采用非负32位整数并在原始token上检查溢出（记录frame_id仍支持uint64）。baseline拒详细/GUI/等待/证据冲突，关闭timing也拒绝。CLI仅覆盖路径和模式，effective_config导出最终值。export_video=1明确NOT_IMPLEMENTED。
+旧debug.timing_enabled/draw_candidates和output.show_window/show_held_state是唯一生效旧开关；新App配置存level、范围、图层、模式、输出目录、导出和回放速率。boolean只接受0/1；范围配置采用非负32位整数并在原始token上检查溢出（记录frame_id仍支持uint64）。baseline拒详细/GUI/等待/证据冲突，关闭timing也拒绝。CLI覆盖路径、模式、报告用途及 Final-fixes 新开关/期待帧数，effective_config导出最终值。当前 export_video=1 在 debug 模式逐帧导出 MJPG/MP4；Block5 旧证据中的 NOT_IMPLEMENTED 只表示当时实现。
 
 结果指纹FNV1a64版本1：初值14695981039346656037、乘1099511628211、uint64溢出。id(uint64)、timestamp(int64位模式)、status(uint32)，raw vector长度(uint64)及每项category/quality(uint32)、corners/bbox(IEEE float32)、orientation/marker_code/confidence，track vector长度/索引(uint64)/同Detection，display可选。optional先0/1；string长度uint64后UTF8；orientation四int32；marker_code为scheme/value(int32)；display为source/age(uint64)、held(1byte)、value(string)。所有整数little-endian。排除diagnostics/timing/runmeta。App文件指纹为FNV1a64+size，明确非密码学摘要，归档工具补SHA256。结果指纹仅连接summary基线，不能代替逐帧比较。
 
 ## 报告与失败
 
-新run目录必须不存在；固定manifest.yaml/effective_config.yaml/summary.yaml，按需frames.jsonl/export_timings.jsonl/evidence。生命周期非法、文件打开/写入、零帧或提前退出非零；失败标记FAILED.json，不能把不完整run当全视频PASS。CPU/系统/编译器/OpenCV/build type/线程/源代码/输入/配置/模型与时戳公式入manifest；不可获取项明确UNKNOWN。
+新run目录必须不存在；固定manifest.yaml/effective_config.yaml/summary.yaml，按需frames.jsonl/export_timings.jsonl/evidence。生命周期非法、文件打开/写入、零帧或提前退出非零；零帧/打开或生命周期错误写 FAILED.json；提前 EOF、用户停止及未证实覆盖写 INCOMPLETE.json，不能把不完整run当全视频PASS。CPU/系统/编译器/OpenCV/build type/线程/源代码/输入/配置/模型与时戳公式入manifest；不可获取项明确UNKNOWN。
 
 [验收记录](block5_acceptance.md)与[证据导航](evidence/block5/INDEX.md)记录实际运行及限制。
 
@@ -49,3 +49,36 @@ offline实时字段全部null，realtime.applicability=not_applicable；不制�
 `--run-purpose verification`只标明debug报告用途，不增加生产模式；正式baseline仍summary，验证用途debug独立使用公共process产生全帧记录，不能冒称baseline开销。
 
 原角点详情的`physical`来自CornerEvidence自身枚举，`measurement_error_px`直接保存原error_（两线平均残差之和），不从稳定点计算。旧金样未包含error_，verify对共同证据字段exact比较，另核新增error_与原两线均值之和相等。直接Temporal的非法update也保留其详情，不以是否执行geometry决定丢弃已取得的诊断。
+
+## Final-fixes 增补契约
+
+记录 schema 仍为 1，manifest.environment 的 `final_fixes_contract="1"` 表示本轮覆盖契约。
+manifest.environment 保存 expected_frames、expected_frames_source（explicit/metadata/unknown）、
+frames_read、coverage（full_input/explicit_subset）、coverage_verified、completion_reason、
+first_submitted_frame_id，以及显式子集 ID。
+完整性以实际读取数与可靠期待数核对，不把 EOF 或 CAP_PROP_FRAME_COUNT 当作单独的成功证明。
+合法子集的 submitted 仅为指定 ID，缺失 ID 失败；未知期待数不宣称完整。
+旧 manifest 无新契约时只在原 metadata 具有可靠正整数帧数且读取/提交一致时接受。
+
+compare 拒绝空输入、重复或倒序帧 ID；不提供期待数时只声明 compared_records_only。
+提供 `--expected-frames N` 要求两侧全量且 ID 连续 0…N−1，才声明 full_input。
+summary 的 FNV 不能替代逐帧结构对账；非法、失败、不完整或覆盖未证实的 run 不被 check-run 接受。
+
+`complete_export(frame_id, timing, selected_record)` 只接受当前提交帧的一次真实导出完成值，
+修正首帧快照及计数，分母仍是 submitted。侧表含 status、selected_record 和 elapsed_us；
+视频未采样帧也写一条，详情选中标记不表示是否写视频。
+计时开启写 MEASURED 与有限非负值，关闭写 DISABLED/null；重复/错帧/错选择及非法耗时主动拒绝。
+frames.jsonl 先序列化，避免导出计时自引用；侧表核验后归并，侧表自身与 writer 打开/收尾归 run_export。
+
+显示 manifest.environment 区分 display_requested、display_active 和 display_reason。
+只有独立探测成功才尝试主窗口；无屏与探测失败降级并继续。
+视频记录请求编码、后端、读回帧数及 FPS；中间文件 `.partial.mp4` 只有在完整性和完整读回通过后发布。
+当前图层仍遵守 empty 不画旧框、unknown 不补标签、历史只显示文字的规则。
+
+新增 expected_frame_count 为 uint64 正整数或配置 0（自动）；video_fourcc 固定 MJPG，
+video_filename 固定 overlay.mp4，display_probe_timeout_ms 为正整数。
+`--display`/`--export-video` 无值且只供 debug；这些 App 字段不改变公共类型、生产参数或算法。
+本轮证据见[Final-fixes 导航](evidence/final-fixes/INDEX.md)。
+
+输入路径不存在或 CLI/配置在创建 run 前被拒绝时，只保留退出码与 stderr，不保证有 run 目录；
+文件存在但解码器无法打开、以及已打开却零帧时，FAILED 生命周期已实跑验证，不生成成功 summary。

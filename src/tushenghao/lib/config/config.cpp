@@ -200,7 +200,7 @@ namespace mark
         checkFields(fs["detector"],path,"detector",{"mode","corner","assignment_completion"});
         checkFields(fs["detector"]["corner"],path,"detector.corner",{"local_search_margin_ratio","min_line_points","max_line_fit_error","min_intersection_angle_deg","max_corner_error","reject_truncated_corner","approximation_epsilon","edge_point_distance_threshold","semantic_geometry_threshold","observation"});
         checkFields(fs["temporal"],path,"temporal",{"stabilization_enabled","display_hold_enabled","max_hold_frames","reference_dt_ms","reference_alpha","history_max_gap_ms","max_center_distance_diagonal_ratio","min_area_ratio","max_area_ratio","correspondence_uncertainty_px","max_smoothing_deviation_px"});
-        checkFields(fs["output"],path,"output",{"show_window","show_held_state","run_mode","run_directory","export_evidence","export_video","playback_fps"});
+        checkFields(fs["output"],path,"output",{"show_window","show_held_state","run_mode","run_directory","export_evidence","export_video","playback_fps","expected_frame_count","video_fourcc","video_filename","display_probe_timeout_ms"});
         checkFields(fs["debug"],path,"debug",{"timing_enabled","draw_candidates","level","detail_first","detail_last","detail_interval","draw_raw","draw_stable","draw_corner_evidence","draw_timing"});
 
         // YAML 字段属于 DetectorConfig，因此统一从这里访问，避免应用层和检测器配置混淆。
@@ -573,8 +573,27 @@ namespace mark
         optionalBool(debug,"draw_corner_evidence",config.render.draw_corner_evidence,"debug.");optionalBool(debug,"draw_timing",config.render.draw_timing,"debug.");
         optionalString(output,"run_mode",config.offline.mode,"output.");optionalString(output,"run_directory",config.offline.directory,"output.");
         optionalBool(output,"export_evidence",config.offline.export_evidence,"output.");optionalBool(output,"export_video",config.offline.export_video,"output.");
+        // 容器截断也可能正常 EOF；App 期待帧数单独加载，不进入 Detector 判据。
+        if (!output["expected_frame_count"].empty()) {
+            if(!output["expected_frame_count"].isInt())
+                throwConfigError(path,"output.expected_frame_count","expected nonnegative integer");
+            // FileStorage 的 int 只有 32 位；原始十进制 token 保留 uint64 完整范围并严格拒绝溢出。
+            const std::regex token(R"((^|[\n{,])[ \t]*(?:"expected_frame_count"|expected_frame_count)[ \t]*:[ \t]*([^ \t\r\n,}#]+))");
+            std::smatch match;
+            if(!std::regex_search(raw_text,match,token))throwConfigError(path,"output.expected_frame_count","missing integer token");
+            const auto value=match[2].str();
+            if(value.empty()||value.find_first_not_of("0123456789")!=std::string::npos)
+                throwConfigError(path,"output.expected_frame_count","expected nonnegative integer");
+            try {config.offline.expected_frame_count=std::stoull(value);}
+            catch(const std::exception&){throwConfigError(path,"output.expected_frame_count","uint64 overflow");}
+        }
         if(!output["playback_fps"].empty())config.offline.playback_fps=readDouble(output["playback_fps"],path,"output.playback_fps");
 
+        // 原未实现开关缺工程参数；编码和 GUI 超时只作用于 App。
+        optionalString(output,"video_fourcc",config.offline.video_fourcc,"output.");
+        optionalString(output,"video_filename",config.offline.video_filename,"output.");
+        if(!output["display_probe_timeout_ms"].empty())
+            config.offline.display_probe_timeout_ms=readInt(output["display_probe_timeout_ms"],path,"output.display_probe_timeout_ms");
         // marker_geometry_path_ 若为相对路径，转成相对于 detector.yaml 所在目录的绝对路径。
         // 消除 CWD 依赖，Block 4/5 及 Codex 不用再 cd。
         {
@@ -790,7 +809,10 @@ namespace mark
         if(config.diagnostics.detail_first>std::numeric_limits<int>::max()||config.diagnostics.detail_interval>std::numeric_limits<int>::max()||(config.diagnostics.detail_last&&*config.diagnostics.detail_last>std::numeric_limits<int>::max()))throw ConfigError("Config error: debug range integer overflow");
         if(config.offline.mode!="baseline"&&config.offline.mode!="debug")throw ConfigError("Config error: output.run_mode");
         if(!std::isfinite(config.offline.playback_fps)||config.offline.playback_fps<0)throw ConfigError("Config error: output.playback_fps");
-        if(config.offline.export_video)throw ConfigError("NOT_IMPLEMENTED: output.export_video");
+        // 原视频导出全局拒绝；现在检查实际模式、固定编码/文件名及正超时。
+        if(config.offline.export_video&&config.offline.mode!="debug")throw ConfigError("Config error: baseline export_video conflict");
+        if(config.offline.video_fourcc!="MJPG"||config.offline.video_filename!="overlay.mp4"||
+           config.offline.display_probe_timeout_ms<=0)throw ConfigError("Config error: output video/probe parameters");
 
     }
 
@@ -982,7 +1004,10 @@ namespace mark
 
         fs << "run_mode" << config.offline.mode << "run_directory" << config.offline.directory
            << "export_evidence" << int(config.offline.export_evidence) << "export_video" << int(config.offline.export_video)
-           << "playback_fps" << config.offline.playback_fps;
+           << "playback_fps" << config.offline.playback_fps
+           << "expected_frame_count" << "__FINAL_FIXES_EXPECTED_COUNT__"
+           << "video_fourcc" << config.offline.video_fourcc << "video_filename" << config.offline.video_filename
+           << "display_probe_timeout_ms" << config.offline.display_probe_timeout_ms;
         fs << "show_window"
            << static_cast<int>(
                   detector.output.show_window);
@@ -1012,6 +1037,15 @@ namespace mark
         fs << "}";
 
         fs.release();
+        // FileStorage 无 uint64 写入重载；只替换本次生成的唯一占位字段为精确整数，避免截断或浮点舍入。
+        std::ifstream input(path);
+        std::string text((std::istreambuf_iterator<char>(input)),{});input.close();
+        const std::regex placeholder(R"count((expected_frame_count:[ \t]*)"?__FINAL_FIXES_EXPECTED_COUNT__"?)count");
+        std::smatch match;
+        if(!std::regex_search(text,match,placeholder))throwConfigError(path,"output.expected_frame_count","effective placeholder missing");
+        text.replace(size_t(match.position()),size_t(match.length()),match[1].str()+std::to_string(config.offline.expected_frame_count));
+        std::ofstream out(path);out<<text;out.flush();
+        if(!out)throwConfigError(path,"output.expected_frame_count","effective config write failed");
     }
 
 } // namespace mark

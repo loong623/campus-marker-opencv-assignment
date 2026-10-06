@@ -161,18 +161,7 @@ namespace mark
         // 可选历史显示状态
         std::optional<DisplayState> display_state;
 
-        // TODO(板块5):
-        // 缺少：diagnostics（诊断信息）
-        // 原因：板块1冻结文档规定该字段存在，但未定义具体C++类型
-        // 补充位置：板块5可观测性模块定义
-        //
-        // Missing: diagnostics field.
-        // Reason: diagnostics type is not defined in block1 frozen contract.
-        // Add in block5 observability layer.
-        // DO:
-        // Block 3 Step 7 审计用：最小诊断信息。
-        // 只存字符串，满足 decode_audit 命令行打印需求。
-        // Block 5 会扩展完整诊断系统，此字段保留兼容，不删除。
+        // Block5 已实现诊断字符串；类型与字段布局保持原契约。
         std::vector<std::string> diagnostics;
     };
 

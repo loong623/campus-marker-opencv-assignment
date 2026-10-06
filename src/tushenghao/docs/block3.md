@@ -1,6 +1,6 @@
 # Block3当前状态与验收记录（WIP）
 
-当前算法基准为[冻结v7](evidence/block3/frozen_detector_v7.yaml)。C/H阶段及隔离均720/720，H门槛PASS；全视频1676帧中864帧产生阶段Detection。公共 `Detector::process()` 因稳定层缺失仍为NOT_READY，整体Block3未完成全部阶段验收。
+当前算法基准为[冻结v7](evidence/block3/frozen_detector_v7.yaml)。C/H阶段及隔离均720/720，H门槛PASS；全视频1676帧中864帧产生阶段Detection。Block4/5 已合入，公共 `Detector::process()` 在预算完整时返回 DETECTED/NOT_DETECTED；人工 V/Q 等剩余验收仍未完成。
 
 本页只描述现行实现。早期M1最近白块fallback、6/7顶点L分类、P1投影成点、删拟合以及“帧1200出框即完成”均不是当前方案。完整过程与已撤回计划保存在[历史记录](history/block3-before-final-organization.md)，各版结果见[证据索引](evidence/block3/INDEX.md)。
 
@@ -38,7 +38,7 @@
 | H独立检查 | 错角、错方向、排序、bbox、证据差异均0；最大真值误差1.3462912原图px |
 | 全视频 | 1676/1676条，864帧有Detection，截断0 |
 | 视频未输出812帧 | 325零白像素、239不足三L、24无完整补全、106角点取证拒绝、118竞争未排除 |
-| 公共接口 | 稳定层缺失，NOT_READY；不发布透传track |
+| 公共接口 | Block4 稳定层已接入；缺批准预算仍 NOT_READY，当前 empty 无 track |
 | CTest | 16项；程序数不等于完整§9.1覆盖，旧assert测试的Release限制保留 |
 
 原三L有效父从771增至1112帧，旧771全部保留。相对v4的591检测帧，保留581、新增283，10帧因新增未排除竞争而保守拒绝。不得通过删竞争分支增加检出数量；视频未标注，不把这些差异称为准确率/召回率改善。
@@ -68,6 +68,6 @@
 
 - V按用户决定暂跳；N/U/O无确认标签，Q无人工真值，视频召回/误检率及人工定位误差未验证。
 - 原32负例子集与封存baseline未提供；完整§9.1、模型绑定配置化、一般仿射/透视/更小目标范围未闭合。
-- 稳定层/track、空间位姿、marker_code、confidence及硬实时不在当前保证范围。
+- 稳定层/track 已按 Block4 批准范围实现并验收；持久物理身份、空间位姿、marker_code、confidence及硬实时不在当前保证范围。
 
 目录/文档/工具整理不改变上述算法、预算及验收口径。冻结YAML和[ref/](ref/)保持原位；最新整理与构建结果见[整理验证](architecture/docs-tools-organization.md)。本次工作未commit，留用户review。

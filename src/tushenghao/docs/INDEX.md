@@ -1,6 +1,6 @@
 # 文档索引
 
-当前实现先读[README](../README.md)与[Block3当前状态](block3.md)，再查[预算及审批](block3_budget.md)、[适用边界](evidence/block3/05-L-observation-v5-v7/适用边界与已知局限.md)。算法基准为冻结v7，H已PASS，整体Block3仍WIP；Block4代码及G-B已批准落地，批准范围内Block4验收已完成，公共流程按预算就绪，未标注视频不报正确率。
+当前实现先读[README](../README.md)与[Block3当前状态](block3.md)，再查[预算及审批](block3_budget.md)、[适用边界](evidence/block3/05-L-observation-v5-v7/适用边界与已知局限.md)。Block3/4/5 已合入；算法基准为冻结v7，H已PASS，人工 V/Q 等验收仍待完成；Block4代码及G-B已批准落地，批准范围内Block4验收已完成，公共流程按预算就绪，未标注视频不报正确率。
 
 | 入口 | 内容 |
 |---|---|
@@ -22,3 +22,9 @@
 - [Block5验收](block5_acceptance.md)：Route B基线、实际测试/性能/异常与剩余项。
 - [Block5诊断schema](diagnostics_schema.md)：时钟、空值、事件、范围、采样、指纹和失败语义。
 - [Block5证据](evidence/block5/INDEX.md)：逐帧金样、运行与完整性核查。
+
+- [Final-fixes 验收](final-fixes_acceptance.md)：13 项实施、两种构建、完整回归、显示与视频自动验证及人工关卡。
+- [Final-fixes 证据](evidence/final-fixes/INDEX.md)：批次日志、全帧 JSONL、完整 MP4、命令及 SHA256。
+
+当前 Final-fixes 自动验证已完成；有屏显示和人工播放器待确认，干净 Linux 按用户决定记未验证。
+历史 Block5 失败 fixture 与未实现视频导出不代表当前状态；原记录保持。

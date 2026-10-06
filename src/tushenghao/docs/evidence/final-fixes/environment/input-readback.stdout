@@ -1,0 +1,13 @@
+{
+    "programs": [
+
+    ],
+    "streams": [
+        {
+            "width": 1440,
+            "height": 1080,
+            "avg_frame_rate": "4400521/62500",
+            "nb_read_frames": "1676"
+        }
+    ]
+}
