@@ -28,3 +28,4 @@ build-*/
 __pycache__/
 *.pyc
 src/tushenghao/tools/synth_ref/runs/
+new-runs/
