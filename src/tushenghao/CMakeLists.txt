@@ -6,6 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 六个内部源码模块仍组成一个库；公开头与内部头的搜索路径分开。
 add_library(mark_detector
+    lib/core/timing.cpp
+    lib/pipeline/diagnostics_context.cpp
+    lib/pipeline/diagnostics_recorder.cpp
+    lib/pipeline/run_report.cpp
     lib/core/marker_geometry.cpp
     lib/core/geometry_utils.cpp
     lib/config/config.cpp
@@ -22,6 +26,7 @@ add_library(mark_detector
     lib/corners/screen_order.cpp
     lib/corners/semantic_resolver.cpp
     lib/corners/detection_validator.cpp
+    lib/corners/detection_publication.cpp
     lib/pipeline/decode_stage.cpp
     lib/pipeline/frame_sequence.cpp
     lib/pipeline/temporal_geometry.cpp
@@ -43,12 +48,19 @@ target_link_libraries(mark_detector_internal_headers INTERFACE mark_detector)
 add_library(mark_test_support INTERFACE)
 target_include_directories(mark_test_support INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/test_support")
 
+add_library(mark_offline app/offline_runner.cpp app/debug_renderer.cpp)
+target_include_directories(mark_offline PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/app")
+target_link_libraries(mark_offline PUBLIC mark_detector_internal_headers)
 add_executable(marker_app app/main.cpp)
-target_link_libraries(marker_app PRIVATE mark_detector_internal_headers)
+target_link_libraries(marker_app PRIVATE mark_offline)
 
 enable_testing()
 # 保持原16个CTest程序；新增Block3主动检查在Release也会报告失败。
 set(MARK_TEST_NAMES
+    diagnostics_record_test
+    debug_renderer_test
+    timing_test
+    observability_integration_test
     temporal_stabilizer_test
     display_history_test
     temporal_integration_test
@@ -79,19 +91,24 @@ endforeach()
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 add_executable(decode_audit tools/audit/decode_audit.cpp)
 target_include_directories(decode_audit PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tools")
-target_link_libraries(decode_audit PRIVATE mark_detector_internal_headers OpenSSL::Crypto)
+target_link_libraries(decode_audit PRIVATE mark_offline OpenSSL::Crypto)
 # 旧configure偷偷调用Git；改由调用方提供标签，真实工作树另以源hash标识。
 set(MARK_COMMIT_LABEL "UNSPECIFIED" CACHE STRING "外部提供基线标签，不表示工作树精确提交")
 set(MARK_COMMIT "${MARK_COMMIT_LABEL}")
 add_executable(temporal_audit tools/audit/temporal_audit.cpp)
 target_include_directories(temporal_audit PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tools")
-target_link_libraries(temporal_audit PRIVATE mark_detector_internal_headers OpenSSL::Crypto)
+target_link_libraries(temporal_audit PRIVATE mark_offline OpenSSL::Crypto)
 # 覆盖搬迁后的所有生产源/头及审计实现，不再只扫描根目录。
 file(GLOB_RECURSE MARK_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/*.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/app/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/app/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validation/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/common/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/common/*.hpp"
 )
 list(APPEND MARK_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit/decode_audit.cpp"
@@ -100,6 +117,7 @@ list(APPEND MARK_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit/temporal_audit.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
 )
+list(REMOVE_DUPLICATES MARK_SOURCES)
 list(SORT MARK_SOURCES)
 set(MARK_DIGEST "")
 foreach(MARK_FILE IN LISTS MARK_SOURCES)
@@ -111,3 +129,20 @@ string(SHA256 MARK_CODE_HASH "${MARK_DIGEST}")
 target_compile_definitions(decode_audit PRIVATE MARK_DEFAULT_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/config/detector.yaml" MARK_COMMIT="${MARK_COMMIT}" MARK_CODE_HASH="${MARK_CODE_HASH}")
 
 target_compile_definitions(temporal_audit PRIVATE MARK_COMMIT="${MARK_COMMIT}" MARK_CODE_HASH="${MARK_CODE_HASH}")
+
+add_executable(geometry_audit tools/audit/geometry_audit.cpp)
+target_link_libraries(geometry_audit PRIVATE mark_offline)
+target_compile_definitions(mark_offline PRIVATE MARK_COMMIT="${MARK_COMMIT}" MARK_CODE_HASH="${MARK_CODE_HASH}" MARK_BUILD_TYPE="${CMAKE_BUILD_TYPE}")
+add_library(mark_frame_record_reader tools/common/frame_record_reader.cpp)
+target_include_directories(mark_frame_record_reader PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tools")
+target_link_libraries(mark_frame_record_reader PRIVATE mark_detector)
+add_executable(observability_verify tools/validation/observability_verify.cpp)
+target_include_directories(observability_verify PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tools")
+target_link_libraries(observability_verify PRIVATE mark_frame_record_reader mark_detector_internal_headers OpenSSL::Crypto)
+
+target_include_directories(diagnostics_record_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tools")
+target_link_libraries(diagnostics_record_test PRIVATE mark_frame_record_reader)
+target_link_libraries(debug_renderer_test PRIVATE mark_offline)
+
+target_include_directories(observability_integration_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tools")
+target_link_libraries(observability_integration_test PRIVATE mark_offline mark_frame_record_reader)

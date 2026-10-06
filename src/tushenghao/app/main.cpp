@@ -1,62 +1,15 @@
-// main.cpp 加 --check-config 全链路测试 配置检查模式:程序能正确理解配置文件
-// 读 detector.yaml → loadConfig → 校验（validateConfig()） → new Detector（Detector(config.detector_config)） → 打印"配置 OK"。证明配置和 Detector 真能连起来干活。
-#include "config/config.hpp"
+// 原App无参静默退出0且只支持check-config；严格解析离线两模式，实际算法由公共process完成。
+#include "offline_runner.hpp"
 #include "mark/detector.hpp"
-#include "core/config_error.hpp"
-
 #include <iostream>
-#include <string>
-#include <filesystem>
-
-int main(int argc, char **argv)
-{
-    if (argc == 2 && std::string(argv[1]) == "--check-config")
-    {
-        try
-        {
-            // 这里只验证配置加载到 Detector 构造的完整链路，不进入实际检测流程。
-            /*mark::AppConfig config =
-                mark::loadConfig(
-                    "src/tushenghao/config/detector.yaml");
-            */
-
-            mark::AppConfig config =
-                mark::loadConfig(
-                    ([]()
-                     {
-    namespace fs = std::filesystem;
-    // __FILE__ = .../src/tushenghao/app/main.cpp
-    // parent_path x2 = .../src/tushenghao
-    fs::path base = fs::path(__FILE__).parent_path().parent_path();
-    return (base / "config" / "detector.yaml").string(); })());
-
-            // TODO(作业后、赛前修): marker_geometry_path_ 相对路径依赖 CWD。
-            // 现状: 必须 cd 到 src/tushenghao/ 再跑 app，否则找不到 config/marker_geometry.yaml 会崩。
-            // 修法: 读完 detector.yaml 后，若 marker_geometry_path_ 是相对路径，转成绝对路径。
-            //       可参考 tests/detector_contract_test.cpp 里用 __FILE__ 推导的写法。
-            //       另需检查 detector.yaml 本身是否也有同类相对路径加载问题。
-
-            // 构造时再次校验 DetectorConfig，确保直接传入配置也满足要求。
-            mark::Detector detector(config.detector_config);
-
-            (void)detector;
-
-            std::cout
-                << "Config check passed"
-                << std::endl;
-
-            return 0;
-        }
-        catch (const mark::ConfigError &e)
-        {
-            std::cerr
-                << "Config check failed: "
-                << e.what()
-                << std::endl;
-
-            return 1;
-        }
-    }
-
-    return 0;
-}
+#include <map>
+int main(int argc,char** argv){try{
+ if(argc==1){std::cerr<<"用法: marker_app --check-config [--config YAML] | --video VIDEO --config YAML --run-dir NEW_DIRECTORY --mode baseline|debug [--run-purpose production|verification]\n";return 1;}
+ std::map<std::string,std::string> args;bool check=false;
+ for(int i=1;i<argc;++i){std::string key=argv[i];if(key=="--check-config"){if(check)throw std::runtime_error("duplicate check-config");check=true;continue;}if(key!="--video"&&key!="--config"&&key!="--run-dir"&&key!="--mode"&&key!="--run-purpose")throw std::runtime_error("unknown option: "+key);if(i+1==argc||std::string(argv[i+1]).rfind("--",0)==0||!args.emplace(key,argv[++i]).second)throw std::runtime_error("missing value or duplicate option");}
+ std::string config=args.count("--config")?args["--config"]:(std::filesystem::path(__FILE__).parent_path().parent_path()/"config/detector.yaml").string();auto app=mark::loadConfig(config);
+ if(check){if(args.size()>(args.count("--config")?1u:0u))throw std::runtime_error("check-config conflicts with run options");mark::Detector d(app.detector_config);std::cout<<"Config check passed\n";return 0;}
+ if(!args.count("--video"))throw std::runtime_error("--video required");if(args.count("--run-dir"))app.offline.directory=args["--run-dir"];if(args.count("--mode"))app.offline.mode=args["--mode"];
+ auto purpose=args.count("--run-purpose")?args["--run-purpose"]:"production";if(purpose!="production"&&purpose!="verification")throw std::runtime_error("invalid run-purpose");if(purpose=="verification"&&app.offline.mode!="debug")throw std::runtime_error("verification requires debug mode");
+ return mark::runOffline(app,args["--video"],config,mark::ExecutionScope::Full,{},purpose);
+ }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

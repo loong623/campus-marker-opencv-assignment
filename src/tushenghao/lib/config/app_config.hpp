@@ -2,6 +2,7 @@
 #pragma once
 
 #include "mark/detector_config.hpp"
+#include "config/observability_config.hpp"
 
 namespace mark
 {
@@ -13,6 +14,9 @@ namespace mark
         // Detector-specific fields are defined by DetectorConfig.
         // 与 Detector 相关的具体字段由 DetectorConfig 定义。
         DetectorConfig detector_config;
+        DiagnosticsConfig diagnostics;
+        RenderConfig render;
+        OfflineRunConfig offline;
 
         // TODO:
         // Application-level configuration fields are added when

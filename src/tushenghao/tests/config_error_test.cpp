@@ -244,7 +244,7 @@ debug:
         return false;
     }
 
-    // 测试开启未实现功能开关时是否抛出 ConfigError。
+    // 计时已经实现，旧负例改测仍未实现的视频导出，不删除未实现功能拒绝覆盖。
     bool testUnsupportedFeatureError()
     {
         const auto path =
@@ -270,6 +270,7 @@ temporal:
 output:
   show_window: 0
   show_held_state: 0
+  export_video: 1
 debug:
   timing_enabled: 1
   draw_candidates: 0

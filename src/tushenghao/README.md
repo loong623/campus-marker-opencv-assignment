@@ -50,7 +50,7 @@ cmake -S src/tushenghao/tools/block3_fixture -B build/block3-fixture -DCMAKE_BUI
 cmake --build build/block3-fixture -j 4
 ```
 
-## 阶段审计
+## 阶段审计（Block3历史命令）
 
 [runDecodePipeline](lib/pipeline/decode_stage.hpp)复用正式阶段模块，不读取合成真值。公共process按真实组件及完整预算就绪门控；离线审计通过decode_audit取得阶段Detection。
 
@@ -73,7 +73,7 @@ H无噪声144/144、噪声576/576，原689和前705逐ID无回退，最大真值
 
 最新文件整理与构建检查见[整理验证](docs/architecture/docs-tools-organization.md)。提交由用户review后操作。
 
-## Block4使用与排错
+## Block4使用与排错（历史接口说明，当前命令见Block5）
 
 [验收记录](docs/block4_acceptance.md)记录实际通过项与剩余项，[预算选择页](docs/block4_budget.md)包含定位统计、480段平滑对照和批准原文。基线标签由调用方传入`MARK_COMMIT_LABEL`，缺省`UNSPECIFIED`；CMake不调用Git。标签不是当前工作树提交，审计另外记录真实源码摘要。
 
@@ -113,6 +113,36 @@ Detection保留当前原始测量；最多一个TrackResult引用其中合法索
 | 实验与视频审计 | [temporal_audit](tools/audit/temporal_audit.cpp)、[工具记录](tools/common/temporal_record.hpp) |
 | 时序配置 | [强类型](include/mark/detector_config.hpp)、[加载/校验/导出](lib/config/config.cpp)、[负例](tests/config_error_test.cpp)、[往返](tests/config_roundtrip_test.cpp) |
 
-当前预算候选只支持固定1440×1080、16px原图笔画、三工作尺寸、24旋转、0/2px圆角、灰度σ=0/1的C/H条件；不承诺任意距离、一般仿射/透视或光照变化。未知方向快速旋转的几何对应不提供持久物理身份保证。性能目标14ms未验收；Block5绘制/计时开关仍拒绝。视频864只是raw回归计数，无V/Q标签不报准确率。
+当前预算候选只支持固定1440×1080、16px原图笔画、三工作尺寸、24旋转、0/2px圆角、灰度σ=0/1的C/H条件；不承诺任意距离、一般仿射/透视或光照变化。未知方向快速旋转的几何对应不提供持久物理身份保证。Block4阶段性能目标14ms未验收；本轮开关已实现，当前结果见Block5验收。视频864只是raw回归计数，无V/Q标签不报准确率。
 
 Block4最终验证：Release19/19、相关Debug5/5；H720/720且逐例无差异；批准配置视频1676帧raw无差异，864track/812empty，应用平滑182，最大当前偏离1.994915px≤2。详细回退分项/批准/证据见[验收记录](docs/block4_acceptance.md)。整体Block3既有WIP、V/Q及性能限制保持原记录。
+
+## Block5 离线可观测性
+
+依赖沿用C++17、CMake、OpenCV、工具OpenSSL；无新增库。工作目录是仓库根。输入可放任意位置，通过`--video`指定，不依赖个人目录。
+
+```bash
+cmake -S src/tushenghao -B build/block5 -DCMAKE_BUILD_TYPE=Release -DMARK_COMMIT_LABEL=b9cccd4
+cmake --build build/block5 -j 4
+ctest --test-dir build/block5 --output-on-failure
+build/block5/marker_app --check-config --config src/tushenghao/config/detector.yaml
+build/block5/marker_app --video data/raw/marker_video.avi --config src/tushenghao/config/detector.yaml --run-dir new-runs/baseline --mode baseline
+build/block5/marker_app --video data/raw/marker_video.avi --config src/tushenghao/docs/evidence/block5/environment/debug_config.yaml --run-dir new-runs/debug --mode debug
+build/block5/marker_app --video data/raw/marker_video.avi --config src/tushenghao/docs/evidence/block5/environment/verification_config.yaml --run-dir new-runs/verification --mode debug --run-purpose verification
+build/block5/geometry_audit --video data/raw/marker_video.avi --config src/tushenghao/config/detector.yaml --run-dir new-runs/geometry
+build/block5/decode_audit data/raw/marker_video.avi all src/tushenghao/config/detector.yaml --run-dir new-runs/decode
+build/block5/temporal_audit --video data/raw/marker_video.avi --config src/tushenghao/config/detector.yaml --run-dir new-runs/temporal
+build/block5/observability_verify --check-run new-runs/debug --report new-runs/debug-check.json
+build/block5/observability_verify --compare src/tushenghao/docs/evidence/block5/step0/patched-baseline.jsonl new-runs/debug --report new-runs/comparison.json
+build/block5/observability_verify --check-archive src/tushenghao/docs/evidence/block5 --report /tmp/block5-archive-check.json
+```
+
+从任意CWD执行时，将程序、video、config、run-dir参数替换为绝对路径；模型相对路径继续相对配置目录解析。上述所有输出目录/报告必须是新路径，不能重复覆盖证据。生产无参打印帮助并非零退出。基线完整处理每帧并开启稳定，关闭GUI/等待/详情；debug采样只改变记录和证据，不能跳算法帧。配置仍为root/input/preprocess/detector/geometry/temporal/output/debug；CLI覆盖路径、唯一mode及报告用途run-purpose，最终effective_config可重载。
+
+三audit使用同一schema/统计，分别运行geometry、decode、temporal实际范围，process_total保持NOT_EXECUTED。decode旧帧列表仍表示执行子集，all才全帧；temporal的`--output PATH`兼容到新`PATH.run/frames.jsonl`，原PATH只写说明，`--overwrite`也不覆盖旧归档。实验网格保留原480段×32，使用`--experiment-grid --noise-csv ... --config ... --run-dir ...`，不更改生产预算。
+
+错误先看stderr和run内FAILED.json、命令退出码；summary的incomplete/failed不能忽略。源时间戳用于算法，steady_clock用于成本；离线实时元数据null。14ms来源是用户系统目标，正式比较只用public_call的process_total，读图/绘制/等待/写盘另报。RAW/STABLE为当前图层；empty不绘旧框，unknown不回填，held仅HISTORY文字。证据详情复用原始取证，不从稳定点伪造交点。
+
+视频导出本期未实现，开启明确报错。D23原三L面积规则、D25角边绑定、一般透视/远距离/置信度仍是原范围限制。旧geometry_matcher_test的Debug assert在原基线也失败，详见[Block5验收](docs/block5_acceptance.md)，不能把Release23/23解释成该旧assert已验证。
+
+本轮证据见[导航](docs/evidence/block5/INDEX.md)、[schema](docs/diagnostics_schema.md)。固定build仅四目录，任务标识匹配、必要产物归档、JSONL/hash/链接与重放核查通过后才清本任务build；旧build、视频、Block3/4归档不清理。后续重放可重新构建同路径，不能依赖被清目录中的唯一证据副本。

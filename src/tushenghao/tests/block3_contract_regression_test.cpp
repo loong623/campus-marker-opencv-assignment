@@ -7,6 +7,9 @@
 #include "block3_fixture.hpp"
 #include "corners/corner_resolver.hpp"
 #include "corners/detection_validator.hpp"
+#include "corners/detection_publication.hpp"
+#include "corners/screen_order.hpp"
+#include "pipeline/temporal_stabilizer.hpp"
 #include "core/config_error.hpp"
 #include <fstream>
 #include <chrono>
@@ -186,6 +189,69 @@ void budgetConfig() {
     }
     std::filesystem::remove(path);
 }
+// 原测试把输入预先舍入，覆盖不到生产的double→float冲突；这里直接发布真实double物理环。
+mark::CornerMeasurement rotatedMeasurement(double degrees) {
+    mark::CornerMeasurement m{};
+    m.physical_corners_={{{-50,-50},{50,-50},{50,50},{-50,50}}};
+    double a=degrees*CV_PI/180,cs=std::cos(a),sn=std::sin(a);
+    for(auto& p:m.physical_corners_)p={150+cs*p.x-sn*p.y,150+sn*p.x+cs*p.y};
+    return m;
+}
+// 同时核验规范序、物理坐标不移动、bbox与unknown，覆盖所有旋转和菱形分界两侧。
+void publicationAngles() {
+    std::vector<double> angles;
+    size_t original_conflicts=0;
+    for(int a=0;a<360;a+=15)angles.push_back(a);
+    for(int offset:{0,90,180,270})for(double a:{44.999999,45.,45.000001})angles.push_back(a+offset);
+    for(double angle:angles)for(bool known:{false,true}) {
+        auto m=rotatedMeasurement(angle);auto before=m.physical_corners_;std::string reason;
+        auto d=mark::publishFloatDetection(m,known,{300,300},{},reason);
+        check(d.has_value()&&reason.empty(),"P01/P02/P04 publication failed");
+        check(m.physical_corners_==before,"publication changed original measurement");
+        std::array<cv::Point2d,4> rounded;for(size_t p=0;p<4;++p)rounded[p]=cv::Point2f(before[p]);
+        auto canonical=mark::orderScreenCycle(rounded,{},reason);
+        check(bool(canonical),"float order rejected");
+        if(angle==45.) {
+            check(canonical->tie,"P04 exact float diamond did not retain tie");
+            check(canonical->screen_points[0]==rounded[0],"P04 frozen lexicographic tie rule changed");
+        }
+        auto old=mark::orderScreenCorners(before,{});
+        check(bool(old.screen_order_),"double precondition failed");
+        bool conflict=false;
+        for(size_t i=0;i<4;++i)conflict=conflict||cv::Point2f(old.screen_order_->screen_points_[i])!=d->corners[i];
+        if(conflict) {
+            ++original_conflicts;
+            std::cout<<"ROUTE_B_COUNTEREXAMPLE angle="<<angle<<" known="<<known<<" physical=";
+            for(auto p:before)std::cout<<p<<' ';
+            std::cout<<" old_float=";for(auto p:old.screen_order_->screen_points_)std::cout<<cv::Point2f(p)<<' ';
+            std::cout<<" canonical_float=";for(auto p:d->corners)std::cout<<p<<' ';std::cout<<'\n';
+        }
+        for(size_t i=0;i<4;++i)check(d->corners[i]==cv::Point2f(canonical->screen_points[i]),"float order not canonical");
+        check(d->attributes.orientation.has_value()==known,"unknown filled or known lost");
+        if(known)for(size_t p=0;p<4;++p)check(d->corners[(*d->attributes.orientation)[p]]==cv::Point2f(before[p]),"physical float point moved");
+        check(d->bbox==mark::boundingBoxFromCorners(d->corners),"publication bbox inaccurate");
+        check(!d->confidence&&!d->attributes.marker_code,"publication fabricated attributes");
+        auto c=config().temporal;mark::TemporalStabilizer t(c);
+        auto r=t.update({*d},{0,0,mark::TimestampSource::Unknown},{300,300});
+        check(r.status==mark::Status::DETECTED&&r.tracks.size()==1,"published raw rejected by Temporal");
+    }
+    check(original_conflicts>0,"P01 fixture did not exercise production double/float conflict");
+}
+// 表示舍入失败不能裁点/伪造点；覆盖原本画内却float越界和舍入后重合。
+void publicationFailures() {
+    for(int variant=0;variant<7;++variant) {
+        auto m=rotatedMeasurement(0);
+        if(variant==0)m.physical_corners_={{{100,100},{100+1e-6,100},{200,200},{100,200}}};
+        if(variant==1)m.physical_corners_[0].x=std::numeric_limits<double>::quiet_NaN();
+        if(variant==2)m.physical_corners_[0].y=std::numeric_limits<double>::infinity();
+        if(variant==3)m.physical_corners_[1].x=300-1e-7;
+        if(variant==4)m.physical_corners_[2].y=300-1e-7;
+        if(variant==5)m.physical_corners_[1]=m.physical_corners_[0];
+        if(variant==6)m.physical_corners_[2]={150,150};
+        std::string why;auto d=mark::publishFloatDetection(m,true,{300,300},{},why);
+        check(!d&&!why.empty(),"P03 invalid publication accepted");
+    }
+}
 }
 // 每个用例独立捕获失败，首个失败不会隐藏后续的已知回归。
 int main() {
@@ -193,7 +259,8 @@ int main() {
         {"invalid_input", invalidInput}, {"sequence", sequence}, {"missing_temporal_budget",missingTemporalBudget}, {"near_tie", nearTie},
         {"nonfinite", nonFinite}, {"zero_semantic_threshold", zeroSemanticThreshold},
         {"stable_semantics",stableSemantics},{"invalid_evidence",invalidEvidence},
-        {"preprocess_mapping",preprocessMapping},{"budget_config",budgetConfig}};
+        {"preprocess_mapping",preprocessMapping},{"budget_config",budgetConfig},
+        {"P01_P02_P04_float_publication",publicationAngles},{"P03_float_publication_rejection",publicationFailures}};
     int failed = 0;
     for (const auto& item : cases) {
         try { item.second(); std::cout << "PASS " << item.first << '\n'; }

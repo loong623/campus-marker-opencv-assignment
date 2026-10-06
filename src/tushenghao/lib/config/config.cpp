@@ -200,8 +200,8 @@ namespace mark
         checkFields(fs["detector"],path,"detector",{"mode","corner","assignment_completion"});
         checkFields(fs["detector"]["corner"],path,"detector.corner",{"local_search_margin_ratio","min_line_points","max_line_fit_error","min_intersection_angle_deg","max_corner_error","reject_truncated_corner","approximation_epsilon","edge_point_distance_threshold","semantic_geometry_threshold","observation"});
         checkFields(fs["temporal"],path,"temporal",{"stabilization_enabled","display_hold_enabled","max_hold_frames","reference_dt_ms","reference_alpha","history_max_gap_ms","max_center_distance_diagonal_ratio","min_area_ratio","max_area_ratio","correspondence_uncertainty_px","max_smoothing_deviation_px"});
-        checkFields(fs["output"],path,"output",{"show_window","show_held_state"});
-        checkFields(fs["debug"],path,"debug",{"timing_enabled","draw_candidates"});
+        checkFields(fs["output"],path,"output",{"show_window","show_held_state","run_mode","run_directory","export_evidence","export_video","playback_fps"});
+        checkFields(fs["debug"],path,"debug",{"timing_enabled","draw_candidates","level","detail_first","detail_last","detail_interval","draw_raw","draw_stable","draw_corner_evidence","draw_timing"});
 
         // YAML 字段属于 DetectorConfig，因此统一从这里访问，避免应用层和检测器配置混淆。
         DetectorConfig &detector = config.detector_config;
@@ -551,6 +551,30 @@ namespace mark
                 path,
                 "debug.draw_candidates");
 
+        // 旧配置没有观测字段时采用冻结默认；存在字段仍走严格基础类型检查，不改变算法预算。
+        auto optionalString=[&](const cv::FileNode& node,const char* key,std::string& value,const std::string& prefix){if(!node[key].empty())value=readString(node[key],path,prefix+key);};
+        auto optionalBool=[&](const cv::FileNode& node,const char* key,bool& value,const std::string& prefix){if(!node[key].empty())value=readBool(node[key],path,prefix+key);};
+        optionalString(debug,"level",config.diagnostics.level,"debug.");
+        auto range=[&](const char* key)->std::optional<uint64_t>{
+            if(debug[key].empty())return std::nullopt;
+            // FileStorage会先截断32位整数，先核原始十进制token，避免巨大帧号被默默改为0。
+            const std::regex token(std::string("(^|[\\n{,])[ \\t]*(?:\"")+key+"\"|"+key+")[ \\t]*:[ \\t]*([+-]?[0-9]+)");
+            for(std::sregex_iterator it(raw_text.begin(),raw_text.end(),token),end;it!=end;++it)try {
+                auto v=std::stoll((*it)[2].str());if(v<0||v>std::numeric_limits<int>::max())throwConfigError(path,std::string("debug.")+key,"integer overflow or negative");
+            }catch(const std::out_of_range&){throwConfigError(path,std::string("debug.")+key,"integer overflow");}
+            const auto value=readDouble(debug[key],path,std::string("debug.")+key);
+            if(!debug[key].isInt()||value<0||value>std::numeric_limits<int>::max())throwConfigError(path,std::string("debug.")+key,"expected nonnegative integer within supported range");
+            return static_cast<uint64_t>(value);
+        };
+        if(auto v=range("detail_first"))config.diagnostics.detail_first=*v;
+        config.diagnostics.detail_last=range("detail_last");
+        if(auto v=range("detail_interval"))config.diagnostics.detail_interval=*v;
+        optionalBool(debug,"draw_raw",config.render.draw_raw,"debug.");optionalBool(debug,"draw_stable",config.render.draw_stable,"debug.");
+        optionalBool(debug,"draw_corner_evidence",config.render.draw_corner_evidence,"debug.");optionalBool(debug,"draw_timing",config.render.draw_timing,"debug.");
+        optionalString(output,"run_mode",config.offline.mode,"output.");optionalString(output,"run_directory",config.offline.directory,"output.");
+        optionalBool(output,"export_evidence",config.offline.export_evidence,"output.");optionalBool(output,"export_video",config.offline.export_video,"output.");
+        if(!output["playback_fps"].empty())config.offline.playback_fps=readDouble(output["playback_fps"],path,"output.playback_fps");
+
         // marker_geometry_path_ 若为相对路径，转成相对于 detector.yaml 所在目录的绝对路径。
         // 消除 CWD 依赖，Block 4/5 及 Codex 不用再 cd。
         {
@@ -760,15 +784,14 @@ namespace mark
                 "Config error: field=detector.mode, reason=unsupported mode");
         }
 
-        // 稳定与文字桥接已实现；Block5绘制/计时仍须拒绝，不能静默忽略。
-        if (detector.output.show_window ||
-            detector.output.show_held_state ||
-            detector.debug.timing_enabled ||
-            detector.debug.draw_candidates)
-        {
-            throw ConfigError(
-                "Config error: requested feature is not implemented in this block");
-        }
+        // 已实现观测开关解除旧禁用；模式冲突留给runner检查，Detector构造只校验值域。
+        if(config.diagnostics.level!="summary"&&config.diagnostics.level!="frame"&&config.diagnostics.level!="evidence")throw ConfigError("Config error: debug.level");
+        if(!config.diagnostics.detail_interval||(config.diagnostics.detail_last&&*config.diagnostics.detail_last<config.diagnostics.detail_first))throw ConfigError("Config error: debug detail range/interval");
+        if(config.diagnostics.detail_first>std::numeric_limits<int>::max()||config.diagnostics.detail_interval>std::numeric_limits<int>::max()||(config.diagnostics.detail_last&&*config.diagnostics.detail_last>std::numeric_limits<int>::max()))throw ConfigError("Config error: debug range integer overflow");
+        if(config.offline.mode!="baseline"&&config.offline.mode!="debug")throw ConfigError("Config error: output.run_mode");
+        if(!std::isfinite(config.offline.playback_fps)||config.offline.playback_fps<0)throw ConfigError("Config error: output.playback_fps");
+        if(config.offline.export_video)throw ConfigError("NOT_IMPLEMENTED: output.export_video");
+
     }
 
     // 将当前有效配置写出，并保证重新加载后配置值保持一致。(把程序最终实际使用的配置保存下来,用于debug，复现实验，记录比赛参数)
@@ -957,6 +980,9 @@ namespace mark
         fs << "output"
            << "{";
 
+        fs << "run_mode" << config.offline.mode << "run_directory" << config.offline.directory
+           << "export_evidence" << int(config.offline.export_evidence) << "export_video" << int(config.offline.export_video)
+           << "playback_fps" << config.offline.playback_fps;
         fs << "show_window"
            << static_cast<int>(
                   detector.output.show_window);
@@ -970,6 +996,11 @@ namespace mark
         fs << "debug"
            << "{";
 
+        fs << "level" << config.diagnostics.level << "detail_first" << int(config.diagnostics.detail_first)
+           << "detail_interval" << int(config.diagnostics.detail_interval);
+        if(config.diagnostics.detail_last)fs << "detail_last" << int(*config.diagnostics.detail_last);
+        fs << "draw_raw" << int(config.render.draw_raw) << "draw_stable" << int(config.render.draw_stable)
+           << "draw_corner_evidence" << int(config.render.draw_corner_evidence) << "draw_timing" << int(config.render.draw_timing);
         fs << "timing_enabled"
            << static_cast<int>(
                   detector.debug.timing_enabled);

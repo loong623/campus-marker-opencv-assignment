@@ -23,7 +23,8 @@ TemporalStabilizer::TemporalStabilizer(TemporalConfig c):config_(c),tau_(compute
     if(c.stabilization_enabled && (!c.correspondence_uncertainty_px || !c.max_smoothing_deviation_px))
         throw std::invalid_argument("TEMPORAL_BUDGET_MISSING");
 }
-void TemporalStabilizer::reset(ResetReason) noexcept {
+void TemporalStabilizer::reset(ResetReason reason) noexcept {
+    resets_.add(reason);
     reference_.reset();smoothing_.reset();last_input_.reset();size_.reset();diagnostics_={};
 }
 namespace {

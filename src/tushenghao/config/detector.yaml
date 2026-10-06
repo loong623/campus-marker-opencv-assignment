@@ -110,7 +110,7 @@ output:
 
 # 调试开关
 debug:
-  timing_enabled: 0
+  timing_enabled: 1
   draw_candidates: 0 
   
 # 几何观察参数（Block 2，阈值待合成数据测量后调整）

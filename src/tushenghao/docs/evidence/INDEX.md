@@ -7,3 +7,6 @@
 | [本轮docs/tools整理](docs-tools-organization/INDEX.md) | 文件保留/冻结hash、链接、Python及构建验证 |
 
 原始JSON、CSV、gzip、日志和历史源码不改写内容。报告链接随目录整理更新，原始manifest/provenance中的build路径或源码路径保留为当时记录；当前所在位置查各批INDEX和整理manifest。冻结YAML在block3原目录，ref保持原位。
+
+- [Block4已批准归档](block4/)：原始审批与逐帧结果，只读。
+- [Block5可观测性](block5/INDEX.md)：新run与Route B基线，历史日志不重写。

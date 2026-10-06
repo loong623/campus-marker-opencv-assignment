@@ -5,6 +5,7 @@
 #include "block3_fixture.hpp"
 #include "temporal_fixture.hpp"
 #include "corners/corner_types.hpp"
+#include "corners/detection_publication.hpp"
 #include <filesystem>
 using namespace mark;using namespace temporal_fixture;
 namespace {
@@ -84,5 +85,19 @@ void sortEquality() {
         check(bool(a)==bool(b.screen_order_)&&why==b.rejection_reason_,"tie/failure sorting differs");
     }
 }
+// 原fixture预先舍入绕开了生产发布边界；以helper真实产物走共享finalize并连续跨界。
+void publishedRawAccepted() {
+    for(bool known:{false,true}) {
+        TemporalStabilizer t(config());DisplayHistory h({false,5});uint64_t id=0;
+        for(double angle:{44.999999,45.000001,45.,135.,225.,315.}) {
+            CornerMeasurement m{};m.physical_corners_=physical(0,angle);std::string why;
+            auto raw=publishFloatDetection(m,known,{300,300},{},why);check(bool(raw),why);
+            DecodeStageResult d;d.status=Status::DETECTED;d.detections={*raw};
+            auto r=finalizeDecodedFrame(d,stamp(id,id*14000),{300,300},t,h);++id;
+            check(r.status==Status::DETECTED&&r.tracks.size()==1&&same(r.detections[0],*raw),"Route B raw rejected or changed");
+            check(r.tracks[0].result.attributes.orientation.has_value()==known,"Route B direction availability changed");
+        }
+    }
 }
-int main(){return run({{"I01",publicStatus},{"I02",layerIsolation},{"I03",rawEquality},{"I04",originalSize},{"I05",publicCleanup},{"I06",sortEquality}});}
+}
+int main(){return run({{"I01",publicStatus},{"I02",layerIsolation},{"I03",rawEquality},{"I04",originalSize},{"I05",publicCleanup},{"I06",sortEquality},{"P01_P04_raw_acceptance",publishedRawAccepted}});}

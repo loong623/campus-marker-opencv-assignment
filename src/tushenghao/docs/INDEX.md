@@ -18,3 +18,7 @@
 [block1.md](block1.md)、[block2.md](block2.md)、[corner_semantics.md](corner_semantics.md)保留原记录；其中旧路径/阶段计划按记录时点理解，现行实现以Block3当前状态和README为准。
 
 冻结总汇总有6条原有引用指向未提供文档，ref原文保持；缺失清单见[整理验证](architecture/docs-tools-organization.md)。当前可编辑导航均已校验。
+
+- [Block5验收](block5_acceptance.md)：Route B基线、实际测试/性能/异常与剩余项。
+- [Block5诊断schema](diagnostics_schema.md)：时钟、空值、事件、范围、采样、指纹和失败语义。
+- [Block5证据](evidence/block5/INDEX.md)：逐帧金样、运行与完整性核查。

@@ -37,6 +37,7 @@ detector.cpp里的真实实现
 
 namespace mark
 {
+    class DetectorDiagnosticsAccess;
     // 定义检测器类
     class Detector
     {
@@ -60,6 +61,8 @@ namespace mark
         const DetectorConfig &config() const noexcept;
 
     private:
+        // 可观测性只通过内部friend访问PImpl；不添加公共调用或对象数据成员。
+        friend class DetectorDiagnosticsAccess;
         // PImpl 技巧(内部实现隐藏)：将实现细节隐藏在 Impl 类中，减少头文件依赖（内部实现，外部提供接口，避免重新编译）
         /*
         detector.hpp

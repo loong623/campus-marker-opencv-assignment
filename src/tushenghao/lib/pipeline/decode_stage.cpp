@@ -9,6 +9,8 @@
 #include "corners/corner_resolver.hpp"
 #include "corners/semantic_resolver.hpp"
 #include "corners/detection_validator.hpp"
+#include "corners/detection_publication.hpp"
+#include "pipeline/diagnostics_context.hpp"
 #include "core/corner_budget.hpp"
 #include <algorithm>
 #include <set>
@@ -16,6 +18,12 @@
 #include <iomanip>
 namespace mark {
 DecodeStageResult decodeStage(const PreparedFrame& frame,const GeometryBatch& batch,const MarkerGeometry& model,const CornerConfig& config) {
+    return decodeStage(frame,batch,model,config,nullptr);
+}
+// 观察入口保留旧签名wrapper；计时与类型化原因在编排处提取，不向底层算法加入判据。
+DecodeStageResult decodeStage(const PreparedFrame& frame,const GeometryBatch& batch,const MarkerGeometry& model,const CornerConfig& config,FrameDiagnosticsContext* context) {
+    std::optional<ScopedStageTimer> timer;if(context)timer.emplace(context->timing,Stage::Decode);
+    auto execute=[&](){
     DecodeStageResult result;result.diagnostics=batch.diagnostics_;result.search_truncated=batch.resource_truncated_;
     if(!batch.segmented_assignments_ready_||!config.observation_budget_) {
         result.diagnostics.push_back("DECODE_NOT_READY: M/S验证或G3/G4预算尚未就绪");return result;
@@ -24,7 +32,8 @@ DecodeStageResult decodeStage(const PreparedFrame& frame,const GeometryBatch& ba
     result.status=Status::NOT_DETECTED;bool unresolved=false;
     for(size_t h=0;h<batch.hypotheses_.size();++h) {
         const auto& hypothesis=batch.hypotheses_[h];
-        auto log=[&](const std::string& stage,const std::string& reason){result.diagnostics.push_back(stage+"/"+std::to_string(h)+"/"+reason);};
+        auto log=[&](const std::string& stage,const std::string& reason){result.diagnostics.push_back(stage+"/"+std::to_string(h)+"/"+reason);
+            if(context)context->event(Stage::Decode,stage=="assignment"?ReasonCode::AssignmentInsufficient:stage=="screen"?ReasonCode::ScreenRejected:stage=="validator"?ReasonCode::ValidationRejected:reason=="CLEARLY_INCOMPLETE"?ReasonCode::ClearlyIncomplete:ReasonCode::CornerRejected,reason,h);};
         if(hypothesis.completeness_==GeometryCompleteness::CLEARLY_INCOMPLETE) {log("corner","CLEARLY_INCOMPLETE");continue;}
         std::set<std::string> parts;
         for(const auto& a:hypothesis.assignments_) parts.insert(a.model_part_id_);
@@ -44,42 +53,51 @@ DecodeStageResult decodeStage(const PreparedFrame& frame,const GeometryBatch& ba
     }
     // 不能因一个竞争假设取证失败，就将剩下一个强行声明为唯一方向/几何。
     if(unresolved&&!result.measurements.empty()) {
-        result.diagnostics.push_back("UNRESOLVED_COMPETING_GEOMETRY: 存在无法排除的失败候选");return result;
+        result.diagnostics.push_back("UNRESOLVED_COMPETING_GEOMETRY: 存在无法排除的失败候选");if(context)context->event(Stage::Decode,ReasonCode::UnresolvedCompetition,result.diagnostics.back());return result;
     }
     auto semantics=resolveSemantics(result.measurements,result.search_truncated,config);
-    if(!semantics.geometry_consistent_) {result.diagnostics.push_back("semantic/"+semantics.rejection_reason_);return result;}
+    if(!semantics.geometry_consistent_) {result.diagnostics.push_back("semantic/"+semantics.rejection_reason_);if(context)context->event(Stage::Decode,ReasonCode::SemanticRejected,semantics.rejection_reason_);return result;}
+    // 原发布按double规范序直接转float，可能被稳定层拒绝；先完成全部发布再提交，失败竞争不能被删掉。
+    std::vector<Detection> pending;
     for(const auto& measurement:semantics.retained_measurements_) {
-        auto order=orderScreenCorners(measurement.physical_corners_,config);
-        if(!order.screen_order_) throw std::logic_error("validated measurement lost screen order");
-        Detection detection{};detection.category=MarkCategory::Unknown;
-        float xmin=INFINITY,ymin=INFINITY,xmax=-INFINITY,ymax=-INFINITY;
-        for(int i=0;i<4;++i) {
-            detection.corners[i]=cv::Point2f(order.screen_order_->screen_points_[i]);
-            xmin=std::min(xmin,detection.corners[i].x);xmax=std::max(xmax,detection.corners[i].x);
-            ymin=std::min(ymin,detection.corners[i].y);ymax=std::max(ymax,detection.corners[i].y);
-        }
-        // 浮点min/max外接框不额外增加一个像素，保持原图四点边界语义。
-        detection.bbox={xmin,ymin,xmax-xmin,ymax-ymin};
-        if(semantics.orientation_unique_) detection.attributes.orientation=order.screen_order_->physical_to_screen_;
-        result.detections.push_back(detection);
+        std::string reason;
+        auto detection=publishFloatDetection(measurement,semantics.orientation_unique_,frame.original_image_.size(),config,reason);
+        if(!detection) {result.diagnostics.push_back("publish_float/"+reason);if(context)context->event(Stage::Decode,ReasonCode::PublishFloatRejected,reason);return result;}
+        pending.push_back(*detection);
     }
+    result.detections=std::move(pending);
     if(!result.detections.empty()) result.status=Status::DETECTED;
+    return result;
+    };
+    auto result=execute();
+    if(context){context->record.counts.measurements=result.measurements.size();context->record.counts.detections=result.detections.size();context->record.result_status=result.status;if(context->details)context->details->decoded=result;}
     return result;
 }
 DecodeStageResult runDecodePipeline(const FrameInput& input,const DetectorConfig& config,const MarkerGeometry& model) {
+    return runDecodePipeline(input,config,model,nullptr);
+}
+// 分阶段包围实际调用，详细trace只在选中帧构造；旧wrapper保留旧行为供历史工具使用。
+DecodeStageResult runDecodePipeline(const FrameInput& input,const DetectorConfig& config,const MarkerGeometry& model,FrameDiagnosticsContext* context) {
     DecodeStageResult result;
-    if(input.image.empty()||input.image.dims!=2||input.image.type()!=CV_8UC3||input.timestamp_us<0||input.time_source!=TimestampSource::Unknown) {result.status=Status::INVALID_INPUT;result.diagnostics.push_back("INPUT_FORMAT");return result;}
+    if(input.image.empty()||input.image.dims!=2||input.image.type()!=CV_8UC3||input.timestamp_us<0||input.time_source!=TimestampSource::Unknown) {result.status=Status::INVALID_INPUT;result.diagnostics.push_back("INPUT_FORMAT");if(context){context->event(Stage::Preprocess,ReasonCode::InputFormat,"INPUT_FORMAT");if(context->request.scope==ExecutionScope::Geometry)context->record.geometry_scope_result="INVALID_INPUT";else context->record.result_status=result.status;}return result;}
     if(!config.assignment_completion_||!config.corner_.observation_budget_) {
-        result.diagnostics.push_back("PIPELINE_NOT_READY: assignment及原图定位预算未配置");return result;
+        result.diagnostics.push_back("PIPELINE_NOT_READY: assignment及原图定位预算未配置");if(context){context->event(Stage::Preprocess,ReasonCode::BudgetMissing,result.diagnostics.back());if(context->request.scope==ExecutionScope::Geometry)context->record.geometry_scope_result="NOT_READY";else context->record.result_status=result.status;}return result;
     }
-    auto prepared=preprocess(input,config.preprocess);
+    PreparedFrame prepared;
+    {std::optional<ScopedStageTimer> timer;if(context)timer.emplace(context->timing,Stage::Preprocess);
+     prepared=preprocess(input,config.preprocess);
+     if(context){context->record.work_size=prepared.image_.size();if(context->details)context->details->prepared=prepared;}}
+    std::optional<ScopedStageTimer> detect_timer;if(context)detect_timer.emplace(context->timing,Stage::Detect);
     auto components=extractWhiteComponents(prepared,config.geometry_);prepared.components_=components;
     auto observations=observeShapes(components,config.geometry_);
     auto batch=generateGeometryHypotheses(observations,model,config.geometry_);
+    if(context){context->record.counts.components=components.size();context->record.counts.observations=observations.size();context->record.counts.generated=batch.hypotheses_.size();
+        if(context->details){context->details->components=components;context->details->observations=observations;context->details->generated=batch;}}
     batch=validateGeometryBatch(batch,model,components,config.geometry_);
+    if(context){context->record.counts.validated=batch.hypotheses_.size();if(context->details)context->details->validated=batch;}
     batch.diagnostics_.push_back("geometry/components="+std::to_string(components.size())+"/hypotheses="+std::to_string(batch.hypotheses_.size()));
     // 保存实际三L父变换/绑定以定位上游反例；不重估、不改变其算法或参数。
-    for(size_t i=0;i<batch.hypotheses_.size();++i) {
+    if(!context||context->record.selected)for(size_t i=0;i<batch.hypotheses_.size();++i) {
         const auto& h=batch.hypotheses_[i];std::ostringstream trace;trace<<std::setprecision(17)<<"geometry/parent="<<i<<"/affine=";
         if(h.affine_transform_.rows==2&&h.affine_transform_.cols==3&&h.affine_transform_.type()==CV_64F)
             for(int row=0;row<2;++row)for(int col=0;col<3;++col)trace<<h.affine_transform_.at<double>(row,col)<<',';
@@ -87,6 +105,12 @@ DecodeStageResult runDecodePipeline(const FrameInput& input,const DetectorConfig
         trace<<"/residual="<<h.validation_residual_<<"/completeness="<<int(h.completeness_);batch.diagnostics_.push_back(trace.str());
     }
     batch=completeSegmentedAssignments(batch,components,model,*config.assignment_completion_);
-    return decodeStage(prepared,batch,model,config.corner_);
+    if(context){context->record.counts.completed=batch.hypotheses_.size();context->record.counts.truncated=batch.resource_truncated_;
+        for(const auto& reason:batch.diagnostics_)if(reason.rfind("geometry/parent=",0)!=0)context->event(Stage::Detect,ReasonCode::OtherRecordedReason,reason);
+        if(context->details){context->details->prepared=prepared;context->details->completed=batch;}}
+    detect_timer.reset();
+    if(context&&context->request.scope==ExecutionScope::Geometry){context->record.result_status.reset();context->record.geometry_scope_result="READY";return result;}
+    result=decodeStage(prepared,batch,model,config.corner_,context);
+    return result;
 }
 }
