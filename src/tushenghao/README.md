@@ -4,14 +4,13 @@
 
 ## 第一步：安装依赖并构建
 
-需要 C++17、CMake ≥3.16、OpenCV 和 OpenSSL。每条命令均为单行：
+环境：Ubuntu 24.04、GCC 13.3.0、C++17、CMake 3.28.3、OpenCV 4.6.0、OpenSSL 3.0.13。
+每条命令均为单行：
 
 ```bash
 sudo apt-get update && sudo apt-get install --no-install-recommends build-essential cmake libopencv-dev libssl-dev
 cmake -S src/tushenghao -B build/release -DCMAKE_BUILD_TYPE=Release && cmake --build build/release -j4
 ```
-
-独立标定工具额外需要 `nlohmann-json3-dev`，见[工具索引](tools/INDEX.md)；普通 App 无须构建这些工具。`clang-format` 仅用于开发排版，不是运行依赖。
 
 ## 第二步：检查配置并选择一种运行方式
 
@@ -65,10 +64,4 @@ ffplay new-runs/quickstart-verification-01/overlay.mp4
 
 配置模型路径相对 YAML 所在目录解析；命令中的视频和输出路径按当前工作目录解析。库使用者包含 `<mark/detector.hpp>`，内部模块见 `lib/`。
 
-当前框来自当前帧测量，失检时不绘历史框；证据不足、结构截断或无法消除的几何竞争会拒绝，方向不唯一可保持 unknown。一般透视、任意尺度/成像条件和真实角点精度仍有适用范围限制；本轮小修没有解决闪烁或重定预算，详见[fix2-sweep 原理调查](docs/fix2_sweep_report.md)与[后续小修验收](docs/fix2_followup_acceptance.md)。
-
-## 文档导航
-
-- [完整文档索引](docs/INDEX.md)
-- [后续小修施工记录](docs/fix2_followup_log.md)与[验收结果](docs/fix2_followup_acceptance.md)
-- [修改前 README 历史全文](docs/history/README_before_fix2_followup.md)：保留 Block3/4/5、Final-fixes、Path A 的全部历史说明和命令。
+当前框来自当前帧测量，失检时不绘历史框；证据不足、结构截断或无法消除的几何竞争会拒绝，方向不唯一可保持 unknown。一般透视、任意尺度/成像条件和真实角点精度仍有适用范围限制；本轮小修没有解决闪烁或重定预算
