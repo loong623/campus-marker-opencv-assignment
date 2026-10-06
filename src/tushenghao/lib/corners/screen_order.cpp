@@ -1,3 +1,4 @@
+#include "corners/screen_order.hpp"
 #include "corners/corner_types.hpp"
 #include "mark/detector_config.hpp"
 
@@ -505,7 +506,7 @@ namespace mark
      * config 当前没有排序参数，
      * 但保留接口以保持 Block 3 API 一致。
      */
-    ScreenOrderResult orderScreenCorners(
+    static ScreenOrderResult orderCycleCore(
         const std::array<cv::Point2d, 4> &physical_corners,
         const CornerConfig &config)
     {
@@ -681,6 +682,20 @@ namespace mark
         result.rejection_reason_.clear();
 
         return result;
+    }
+
+// 旧物理入口与新几何环入口共享同一排序核心；不复制能量/平局比较。
+    ScreenOrderResult orderScreenCorners(const std::array<cv::Point2d,4>& physical,
+                                         const CornerConfig& config) {
+        return orderCycleCore(physical, config);
+    }
+    std::optional<ScreenCycleOrder> orderScreenCycle(const std::array<cv::Point2d,4>& cycle,
+                                                    const CornerConfig& config, std::string& reason) {
+        auto result = orderCycleCore(cycle, config);
+        reason = result.rejection_reason_;
+        if (!result.screen_order_) return std::nullopt;
+        const auto& order = *result.screen_order_;
+        return ScreenCycleOrder{order.screen_points_, order.physical_to_screen_, order.screen_order_tie_};
     }
 
 } // namespace mark

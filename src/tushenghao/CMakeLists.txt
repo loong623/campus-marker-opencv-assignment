@@ -23,6 +23,11 @@ add_library(mark_detector
     lib/corners/semantic_resolver.cpp
     lib/corners/detection_validator.cpp
     lib/pipeline/decode_stage.cpp
+    lib/pipeline/frame_sequence.cpp
+    lib/pipeline/temporal_geometry.cpp
+    lib/pipeline/temporal_stabilizer.cpp
+    lib/pipeline/display_history.cpp
+    lib/pipeline/stabilize_stage.cpp
     lib/pipeline/detector.cpp
 )
 target_include_directories(mark_detector
@@ -44,6 +49,9 @@ target_link_libraries(marker_app PRIVATE mark_detector_internal_headers)
 enable_testing()
 # 保持原16个CTest程序；新增Block3主动检查在Release也会报告失败。
 set(MARK_TEST_NAMES
+    temporal_stabilizer_test
+    display_history_test
+    temporal_integration_test
     block3_contract_regression_test
     assignment_completion_test
     corner_edge_fit_test
@@ -72,8 +80,12 @@ find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 add_executable(decode_audit tools/audit/decode_audit.cpp)
 target_include_directories(decode_audit PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tools")
 target_link_libraries(decode_audit PRIVATE mark_detector_internal_headers OpenSSL::Crypto)
-execute_process(COMMAND git rev-parse HEAD WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    OUTPUT_VARIABLE MARK_COMMIT OUTPUT_STRIP_TRAILING_WHITESPACE)
+# 旧configure偷偷调用Git；改由调用方提供标签，真实工作树另以源hash标识。
+set(MARK_COMMIT_LABEL "UNSPECIFIED" CACHE STRING "外部提供基线标签，不表示工作树精确提交")
+set(MARK_COMMIT "${MARK_COMMIT_LABEL}")
+add_executable(temporal_audit tools/audit/temporal_audit.cpp)
+target_include_directories(temporal_audit PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tools")
+target_link_libraries(temporal_audit PRIVATE mark_detector_internal_headers OpenSSL::Crypto)
 # 覆盖搬迁后的所有生产源/头及审计实现，不再只扫描根目录。
 file(GLOB_RECURSE MARK_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/*.cpp"
@@ -84,6 +96,8 @@ file(GLOB_RECURSE MARK_SOURCES CONFIGURE_DEPENDS
 list(APPEND MARK_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit/decode_audit.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/common/file_digest.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/common/temporal_record.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit/temporal_audit.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
 )
 list(SORT MARK_SOURCES)
@@ -95,3 +109,5 @@ endforeach()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${MARK_SOURCES})
 string(SHA256 MARK_CODE_HASH "${MARK_DIGEST}")
 target_compile_definitions(decode_audit PRIVATE MARK_DEFAULT_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/config/detector.yaml" MARK_COMMIT="${MARK_COMMIT}" MARK_CODE_HASH="${MARK_CODE_HASH}")
+
+target_compile_definitions(temporal_audit PRIVATE MARK_COMMIT="${MARK_COMMIT}" MARK_CODE_HASH="${MARK_CODE_HASH}")

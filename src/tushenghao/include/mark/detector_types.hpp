@@ -124,15 +124,6 @@ namespace mark
     // 显示层状态(用于显示和交互!=Detection看到（输出）的结果)
     struct DisplayState
     {
-        // TODO(板块4):
-        // 缺少：历史语义显示值（historical semantic display value）
-        // 原因：板块1冻结文档只规定该字段存在，未定义对应C++类型
-        // 补充位置：板块4稳定层/显示桥接实现时定义
-        //
-        // Missing: historical semantic display value.
-        // Reason: type is not defined in block1 frozen contract.
-        // Add in block4 stabilization/display layer.
-
         // 来源帧
         // source frame
         uint64_t source_frame_id;
@@ -144,6 +135,9 @@ namespace mark
         // 是否沿用历史显示
         // whether historical state is reused
         bool is_held;
+
+        // G-ABI已批准选A：追加独立文字载荷，改变FrameResult嵌套ABI；所有目标须重建。
+        std::string value;
     };
 
     // Detector 处理完一帧后的完整输出（包含状态、检测结果、稳定结果、显示状态等）

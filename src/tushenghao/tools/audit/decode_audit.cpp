@@ -1,5 +1,5 @@
 // 输入固定视频/配置，调用唯一runDecodePipeline；输出逐帧JSONL和摘要到stderr。
-// 阶段status与公共NOT_READY分开记录；没有真值时定位误差为null，不写0。
+// 未调用公共process，public_status标NOT_EVALUATED；没有真值时定位误差为null，不写0。
 #include "config/config.hpp"
 #include "pipeline/decode_stage.hpp"
 #include "common/file_digest.hpp"
@@ -23,7 +23,7 @@ void point(cv::Point2d p) {std::cout<<'['<<p.x<<','<<p.y<<']';}
 // 记录所有成功测量原始证据；拒绝原因仍在diagnostics，不用empty吞模块失败。
 void record(uint64_t id,int64_t timestamp,const mark::DecodeStageResult& r,const std::string& input_hash,const std::string& config_hash,double stage_ms) {
     std::cout<<std::setprecision(17)<<"{\"frame_id\":"<<id<<",\"timestamp_us\":"<<timestamp
-      <<",\"stage\":\"decode\",\"status\":"<<int(r.status)<<",\"public_status\":\"NOT_READY\",\"input_sha256\":"<<quote(input_hash)
+      <<",\"stage\":\"decode\",\"status\":"<<int(r.status)<<",\"public_status\":\"NOT_EVALUATED\",\"input_sha256\":"<<quote(input_hash)
       <<",\"stage_ms\":"<<stage_ms<<",\"config_sha256\":"<<quote(config_hash)<<",\"commit\":"<<quote(MARK_COMMIT)
       <<",\"code_sha256\":"<<quote(MARK_CODE_HASH)<<",\"search_truncated\":"<<(r.search_truncated?"true":"false")<<",\"detections\":[";
     for(size_t d=0;d<r.detections.size();++d) {
@@ -77,7 +77,7 @@ int main(int argc,char** argv) {
                 ++records;if(!result.detections.empty())++detected;pending.erase(static_cast<int>(id));
             }++id;
         }
-        std::cerr<<"decoded_frames="<<id<<" records="<<records<<" stage_detected="<<detected<<" public_status=NOT_READY\n";
+        std::cerr<<"decoded_frames="<<id<<" records="<<records<<" stage_detected="<<detected<<" public_status=NOT_EVALUATED\n";
         if(!pending.empty()) throw std::runtime_error("requested frame missing");
         return 0;
     } catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}

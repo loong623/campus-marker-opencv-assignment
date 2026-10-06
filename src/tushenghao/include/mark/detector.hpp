@@ -50,10 +50,10 @@ namespace mark
 
         Detector &operator=(const Detector &) = delete;
 
-        // 处理输入帧，返回处理结果（核心接口）
+        // 处理输入帧：真实decode/稳定装配就绪后返回当前raw与单track，缺预算NOT_READY。
         FrameResult process(const FrameInput &frame);
 
-        // 重置Detector状态（根据不同原因进行重置）（清空防止污染）（noexcept表示不throw异常）
+        // 清除序列及选择/平滑/文字三历史；同尺寸换源或循环前由调用方reset(InputChanged)。
         void reset(ResetReason reason) noexcept;
 
         // 获取当前配置（只读访问,返回当前配置）

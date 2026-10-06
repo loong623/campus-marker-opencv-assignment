@@ -50,15 +50,24 @@ void invalidInput() {
     input.time_source = static_cast<mark::TimestampSource>(123);
     check(detector.process(input).status == mark::Status::INVALID_INPUT, "unknown enum value accepted");
 }
-// reset/实例隔离只重置输入序列，不实现任何稳定层或历史输出。
+// 完整获批配置黑帧正常NOT_DETECTED；非法后低id恢复/reset/实例隔离仍保持负例。
 void sequence() {
     mark::Detector a(config()), b(config());
-    check(a.process(frame(5, 100)).status == mark::Status::NOT_READY, "stabilize gate bypassed");
+    check(a.process(frame(5, 100)).status == mark::Status::NOT_DETECTED, "ready black frame status incorrect");
     check(a.process(frame(5, 101)).status == mark::Status::INVALID_INPUT, "duplicate id accepted");
     a.reset(mark::ResetReason::InvalidSequence);
-    check(a.process(frame(1, 50)).status == mark::Status::NOT_READY, "reset did not clear sequence");
+    check(a.process(frame(1, 50)).status == mark::Status::NOT_DETECTED, "reset did not clear sequence");
     check(a.process(frame(2, 49)).status == mark::Status::INVALID_INPUT, "backwards time accepted");
-    check(b.process(frame(0, 0)).status == mark::Status::NOT_READY, "instance state leaked");
+    check(b.process(frame(0, 0)).status == mark::Status::NOT_DETECTED, "instance state leaked");
+}
+// G-B缺失仍NOT_READY，关闭平滑不能绕过；不因升级就绪fixture删除旧门控负例。
+void missingTemporalBudget() {
+    auto c=config();c.temporal.correspondence_uncertainty_px.reset();
+    for(bool enabled:{false,true}) {
+        c.temporal.stabilization_enabled=enabled;mark::Detector detector(c);
+        auto r=detector.process(frame(0,0));
+        check(r.status==mark::Status::NOT_READY&&r.detections.empty()&&r.tracks.empty(),"missing G-B bypassed");
+    }
 }
 // 后来的能量略小但仍在冻结 64ε 平局集合内，旧循环会清除 tie。
 void nearTie() {
@@ -181,7 +190,7 @@ void budgetConfig() {
 // 每个用例独立捕获失败，首个失败不会隐藏后续的已知回归。
 int main() {
     const std::pair<const char*, void(*)()> cases[] = {
-        {"invalid_input", invalidInput}, {"sequence", sequence}, {"near_tie", nearTie},
+        {"invalid_input", invalidInput}, {"sequence", sequence}, {"missing_temporal_budget",missingTemporalBudget}, {"near_tie", nearTie},
         {"nonfinite", nonFinite}, {"zero_semantic_threshold", zeroSemanticThreshold},
         {"stable_semantics",stableSemantics},{"invalid_evidence",invalidEvidence},
         {"preprocess_mapping",preprocessMapping},{"budget_config",budgetConfig}};

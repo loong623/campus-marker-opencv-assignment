@@ -43,7 +43,13 @@ namespace
 
         detector.temporal.stabilization_enabled = false;
         detector.temporal.display_hold_enabled = false;
-        detector.temporal.max_hold_frames = 5;
+        detector.temporal.max_hold_frames = 7;
+        // 非默认fixture值验证每个新增字段不会被导出器遗漏或重载成默认。
+        detector.temporal.stabilization_enabled=true;detector.temporal.display_hold_enabled=true;
+        detector.temporal.reference_dt_ms=15;detector.temporal.reference_alpha=.6;
+        detector.temporal.history_max_gap_ms=60;detector.temporal.max_center_distance_diagonal_ratio=.6;
+        detector.temporal.min_area_ratio=.6;detector.temporal.max_area_ratio=1.8;
+        detector.temporal.correspondence_uncertainty_px=2;detector.temporal.max_smoothing_deviation_px=3;
 
         detector.output.show_window = false;
         detector.output.show_held_state = false;
@@ -89,6 +95,15 @@ namespace
                    b.temporal.display_hold_enabled &&
                a.temporal.max_hold_frames ==
                    b.temporal.max_hold_frames &&
+
+               a.temporal.reference_dt_ms == b.temporal.reference_dt_ms &&
+               a.temporal.reference_alpha == b.temporal.reference_alpha &&
+               a.temporal.history_max_gap_ms == b.temporal.history_max_gap_ms &&
+               a.temporal.max_center_distance_diagonal_ratio == b.temporal.max_center_distance_diagonal_ratio &&
+               a.temporal.min_area_ratio == b.temporal.min_area_ratio &&
+               a.temporal.max_area_ratio == b.temporal.max_area_ratio &&
+               a.temporal.correspondence_uncertainty_px == b.temporal.correspondence_uncertainty_px &&
+               a.temporal.max_smoothing_deviation_px == b.temporal.max_smoothing_deviation_px &&
 
                a.output.show_window ==
                    b.output.show_window &&

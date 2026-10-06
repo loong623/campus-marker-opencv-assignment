@@ -3,9 +3,9 @@
 这些是离线生成、校准、验证和诊断工具，复用主检测库；正式检测不读取工具侧真值。源码按用途分类，既有可执行目标名和独立构建入口保留。
 
 ```bash
-cmake -S src/tushenghao -B build/tushenghao -DCMAKE_BUILD_TYPE=Release
+cmake -S src/tushenghao -B build/tushenghao -DCMAKE_BUILD_TYPE=Release -DMARK_COMMIT_LABEL=08c5c44
 cmake --build build/tushenghao -j 4
-cmake -S src/tushenghao/tools/block3_fixture -B build/block3-fixture -DCMAKE_BUILD_TYPE=Release
+cmake -S src/tushenghao/tools/block3_fixture -B build/block3-fixture -DCMAKE_BUILD_TYPE=Release -DMARK_COMMIT_LABEL=08c5c44
 cmake --build build/block3-fixture -j 4
 ```
 
@@ -14,6 +14,8 @@ cmake --build build/block3-fixture -j 4
 | 类别 | 源码/脚本 | 目标或调用入口 | 用途 |
 |---|---|---|---|
 | 阶段审计 | [audit/decode_audit.cpp](audit/decode_audit.cpp) | build/tushenghao/decode_audit | 单帧/全视频真实pipeline、证据与状态；不是公共稳定track |
+| 时序审计 | [audit/temporal_audit.cpp](audit/temporal_audit.cpp) | temporal_audit | 一次decode的raw/稳定共享装配，独立EXPERIMENTAL语义网格 |
+| 时序记录 | [common/temporal_record.hpp](common/temporal_record.hpp) | 无独立入口 | Block4专用JSONL，不进入算法库 |
 | 共用摘要 | [common/file_digest.hpp](common/file_digest.hpp) | 无独立入口 | 审计/诊断输入和配置SHA |
 | 样例生成 | [generation/main.cpp](block3_fixture/generation/main.cpp) | block3_fixture | C/H的plan/sample/generate |
 | C校准 | [calibration/measure.cpp](block3_fixture/calibration/measure.cpp) | block3_measure | C固定条件隔离/关联测量，不表示正式H |
@@ -45,7 +47,18 @@ build/block3-fixture/block3_resources > build/resources-new.jsonl
 - block3_verify正式H：退出0为H门槛PASS，2为H未达门槛，1为输入/配置错误；C退出0是诊断回归完成，不冒称独立H。
 - verify的 `--diagnose-stage`、`--diagnose-one`、`--candidate-config`是辅助模式，不用它们代替默认正式验证。
 - report_verification.py退出0表示报告写入完成，是否通过须读输出JSON中的H_acceptance；无视频标签时recall/Q保持null。
-- decode_audit退出0表示解码/请求帧处理完成，Detection数量不等于正确率；公共状态仍NOT_READY。
+- decode_audit退出0表示解码/请求帧处理完成，Detection数量不等于正确率；公共状态为NOT_EVALUATED，工具未调用process。
 - parent/video诊断中的isolated输出保留diagnostic_only，不用于宣传正式成功率。
 
 最新结果入口：[Block3证据索引](../docs/evidence/block3/INDEX.md)。源码目录细节：[README](../README.md)。
+
+## Block4新增工具
+
+```bash
+build/block4/temporal_audit --video data/raw/marker_video.avi --config src/tushenghao/config/detector.yaml --output build/block4-evidence/new-video.jsonl
+build/block4/temporal_audit --experiment-grid --noise-csv build/block4-evidence/C-fixed-noise.csv --config build/block4-evidence/EXPERIMENTAL-detector.yaml --output build/block4-evidence/new-grid.jsonl
+```
+
+视频模式三参数均必填。实验模式用`--experiment-grid`与必填`--noise-csv`替代`--video`，`--config/--output`仍必填；CSV首列为C case_work_id，后八列为物理四角dx/dy，固定顺序至少32行。工具固定32次调用/段、7/14/28ms、100px方框、平移与旋转独立对照、已知/未知方向及有/无扰动、四档偏离，不从视频调值。r必须由独立EXPERIMENTAL配置提供；偏离档0.5/1/2/4仅用于网格，不写生产。原始grid行包含配置/扰动/模型/代码hash，统计方法、支持范围和可重放命令见[Block4预算](../docs/block4_budget.md)。
+
+输出父目录可创建，已有输出或`.effective.yaml`默认拒绝，显式`--overwrite`才覆盖指定产物；输入/配置/记录失败退出1，成功完成退出0。生产缺预算允许记录raw阶段但共享最终结果为NOT_READY、空有效载荷，不把实验配置当批准配置。两模式都不实现Block5计时框架。

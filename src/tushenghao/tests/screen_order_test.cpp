@@ -31,6 +31,7 @@ namespace { void check(bool ok, const char* message) { if (!ok) throw std::runti
 
 #include "corners/corner_types.hpp"
 #include "mark/detector_config.hpp"
+#include "corners/screen_order.hpp"
 #include "corners/corner_types.hpp"
 
 namespace mark
@@ -38,6 +39,20 @@ namespace mark
 
     namespace
     {
+
+        // 对每个旧样例同时查新几何环接口；保留原golden断言而非只比两个包装。
+        ScreenOrderResult orderAndCompare(const std::array<cv::Point2d,4>& input,const CornerConfig& config) {
+            auto old=orderScreenCorners(input,config);std::string reason;
+            auto cycle=orderScreenCycle(input,config,reason);
+            check(bool(cycle)==bool(old.screen_order_),"cycle/physical success differs");
+            check(reason==old.rejection_reason_,"cycle/physical reason differs");
+            if(cycle) {
+                check(cycle->screen_points==old.screen_order_->screen_points_,"cycle points differ");
+                check(cycle->input_to_screen==old.screen_order_->physical_to_screen_,"cycle slot map differs");
+                check(cycle->tie==old.screen_order_->screen_order_tie_,"cycle tie differs");
+            }
+            return old;
+        }
 
         /**
          * @brief 构造默认配置。
@@ -150,7 +165,7 @@ namespace mark
                 cv::Point2d{0, 1}};
 
         auto result =
-            orderScreenCorners(
+            orderAndCompare(
                 physical,
                 make_test_config());
 
@@ -188,7 +203,7 @@ namespace mark
                 cv::Point2d{5, 30}};
 
         auto result =
-            orderScreenCorners(
+            orderAndCompare(
                 physical,
                 make_test_config());
 
@@ -225,7 +240,7 @@ namespace mark
                 cv::Point2d{-1, 0}};
 
         auto result =
-            orderScreenCorners(
+            orderAndCompare(
                 physical,
                 make_test_config());
 
@@ -275,7 +290,7 @@ namespace mark
              cases)
         {
             auto result =
-                orderScreenCorners(
+                orderAndCompare(
                     physical,
                     make_test_config());
 
@@ -309,7 +324,7 @@ namespace mark
                 cv::Point2d{100, 400}};
 
         auto result =
-            orderScreenCorners(
+            orderAndCompare(
                 physical,
                 make_test_config());
 
@@ -339,7 +354,7 @@ namespace mark
                 cv::Point2d{3, 0}};
 
         auto result =
-            orderScreenCorners(
+            orderAndCompare(
                 physical,
                 make_test_config());
 
@@ -361,7 +376,7 @@ namespace mark
                 cv::Point2d{1, 1}};
 
         auto result =
-            orderScreenCorners(
+            orderAndCompare(
                 physical,
                 make_test_config());
 

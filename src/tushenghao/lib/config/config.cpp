@@ -11,7 +11,7 @@
 2.validateConfig 抛错（验的时候）：
 ->schema_version ≠ 1、pixel_format ≠ BGR8、timestamp_unit ≠ "us"
 ->work_width/height ≤ 0、threshold 超出 0~255、max_hold_frames < 0
-->6 个"未实现"开关被打开
+->Block5绘制/计时开关被打开
 
 3.writeEffectiveConfig 抛错：
 ->文件写不开
@@ -41,6 +41,8 @@ readBool：读 0/1 开关，顺手校验只能是 0 或 1
 #include "config/config.hpp"
 #include "core/corner_budget.hpp"
 #include <set>
+#include <fstream>
+#include <regex>
 #include <limits>
 
 #include <opencv2/core.hpp>
@@ -197,7 +199,7 @@ namespace mark
         checkFields(fs["geometry"],path,"geometry",{"white_threshold","approximation_epsilon","min_area","max_hypothesis_count","max_validation_residual","min_area_ratio","max_area_ratio"});
         checkFields(fs["detector"],path,"detector",{"mode","corner","assignment_completion"});
         checkFields(fs["detector"]["corner"],path,"detector.corner",{"local_search_margin_ratio","min_line_points","max_line_fit_error","min_intersection_angle_deg","max_corner_error","reject_truncated_corner","approximation_epsilon","edge_point_distance_threshold","semantic_geometry_threshold","observation"});
-        checkFields(fs["temporal"],path,"temporal",{"stabilization_enabled","display_hold_enabled","max_hold_frames"});
+        checkFields(fs["temporal"],path,"temporal",{"stabilization_enabled","display_hold_enabled","max_hold_frames","reference_dt_ms","reference_alpha","history_max_gap_ms","max_center_distance_diagonal_ratio","min_area_ratio","max_area_ratio","correspondence_uncertainty_px","max_smoothing_deviation_px"});
         checkFields(fs["output"],path,"output",{"show_window","show_held_state"});
         checkFields(fs["debug"],path,"debug",{"timing_enabled","draw_candidates"});
 
@@ -496,6 +498,29 @@ namespace mark
                 path,
                 "temporal.max_hold_frames");
 
+        // schema=1旧快照允许省略冻结起点；G-B缺失保持optional空，不能自动批准。
+        if(!temporal["reference_dt_ms"].empty()) detector.temporal.reference_dt_ms=readDouble(temporal["reference_dt_ms"],path,"temporal.reference_dt_ms");
+        if(!temporal["reference_alpha"].empty()) detector.temporal.reference_alpha=readDouble(temporal["reference_alpha"],path,"temporal.reference_alpha");
+        if(!temporal["history_max_gap_ms"].empty()) detector.temporal.history_max_gap_ms=readDouble(temporal["history_max_gap_ms"],path,"temporal.history_max_gap_ms");
+        if(!temporal["max_center_distance_diagonal_ratio"].empty()) detector.temporal.max_center_distance_diagonal_ratio=readDouble(temporal["max_center_distance_diagonal_ratio"],path,"temporal.max_center_distance_diagonal_ratio");
+        if(!temporal["min_area_ratio"].empty()) detector.temporal.min_area_ratio=readDouble(temporal["min_area_ratio"],path,"temporal.min_area_ratio");
+        if(!temporal["max_area_ratio"].empty()) detector.temporal.max_area_ratio=readDouble(temporal["max_area_ratio"],path,"temporal.max_area_ratio");
+        if(!temporal["correspondence_uncertainty_px"].empty()) detector.temporal.correspondence_uncertainty_px=readDouble(temporal["correspondence_uncertainty_px"],path,"temporal.correspondence_uncertainty_px");
+        if(!temporal["max_smoothing_deviation_px"].empty()) detector.temporal.max_smoothing_deviation_px=readDouble(temporal["max_smoothing_deviation_px"],path,"temporal.max_smoothing_deviation_px");
+        // OpenCV整数解析会先截断到32位（4294967296变0），节点值已丢失原值。
+        // 仅新增hold字段在原始YAML十进制token上补溢出检查，保持旧参数规则不变。
+        std::ifstream raw_file(path);std::string raw_text((std::istreambuf_iterator<char>(raw_file)),{});
+        const std::regex hold_token(R"((^|[\n{,])[ \t]*(?:"max_hold_frames"|max_hold_frames)[ \t]*:[ \t]*([+-]?[0-9]+))");
+        for(std::sregex_iterator it(raw_text.begin(),raw_text.end(),hold_token),end;it!=end;++it) {
+            try {
+                long long value=std::stoll((*it)[2].str());
+                if(value<0 || value>std::numeric_limits<int>::max())
+                    throwConfigError(path,"temporal.max_hold_frames","integer overflow or negative");
+            } catch(const std::out_of_range&) {
+                throwConfigError(path,"temporal.max_hold_frames","integer overflow");
+            }
+        }
+
         cv::FileNode output =
             requireNode("output");
 
@@ -709,6 +734,19 @@ namespace mark
                 "Config error: field=marker_geometry_path, reason=path must not be empty");
         }
 
+        // 新时序参数同时保护直接构造和YAML加载；缺预算允许NOT_READY审计。
+        const auto& t=detector.temporal;
+        auto positive=[](double v) {return std::isfinite(v) && v>0;};
+        if(!positive(t.reference_dt_ms) || !std::isfinite(t.reference_alpha) ||
+           t.reference_alpha<=0 || t.reference_alpha>=1 || !positive(t.history_max_gap_ms) ||
+           !positive(t.max_center_distance_diagonal_ratio) || !positive(t.min_area_ratio) ||
+           !positive(t.max_area_ratio) || t.min_area_ratio>1 || t.max_area_ratio<1)
+            throw ConfigError("Config error: field=temporal, reason=invalid finite temporal parameter");
+        if(t.correspondence_uncertainty_px && (!std::isfinite(*t.correspondence_uncertainty_px) || *t.correspondence_uncertainty_px<0))
+            throw ConfigError("Config error: field=temporal.correspondence_uncertainty_px, reason=must be finite non-negative");
+        if(t.max_smoothing_deviation_px && !positive(*t.max_smoothing_deviation_px))
+            throw ConfigError("Config error: field=temporal.max_smoothing_deviation_px, reason=must be finite positive");
+
         // temporal配置
         if (detector.temporal.max_hold_frames < 0)
         {
@@ -722,10 +760,8 @@ namespace mark
                 "Config error: field=detector.mode, reason=unsupported mode");
         }
 
-        // 当前板块没有实现这些功能，因此配置开启时必须拒绝，而不是静默忽略。
-        if (detector.temporal.stabilization_enabled ||
-            detector.temporal.display_hold_enabled ||
-            detector.output.show_window ||
+        // 稳定与文字桥接已实现；Block5绘制/计时仍须拒绝，不能静默忽略。
+        if (detector.output.show_window ||
             detector.output.show_held_state ||
             detector.debug.timing_enabled ||
             detector.debug.draw_candidates)
@@ -899,6 +935,15 @@ namespace mark
         fs << "stabilization_enabled"
            << static_cast<int>(
                   detector.temporal.stabilization_enabled);
+
+        fs << "reference_dt_ms" << detector.temporal.reference_dt_ms;
+        fs << "reference_alpha" << detector.temporal.reference_alpha;
+        fs << "history_max_gap_ms" << detector.temporal.history_max_gap_ms;
+        fs << "max_center_distance_diagonal_ratio" << detector.temporal.max_center_distance_diagonal_ratio;
+        fs << "min_area_ratio" << detector.temporal.min_area_ratio;
+        fs << "max_area_ratio" << detector.temporal.max_area_ratio;
+        if(detector.temporal.correspondence_uncertainty_px) fs << "correspondence_uncertainty_px" << *detector.temporal.correspondence_uncertainty_px;
+        if(detector.temporal.max_smoothing_deviation_px) fs << "max_smoothing_deviation_px" << *detector.temporal.max_smoothing_deviation_px;
 
         fs << "display_hold_enabled"
            << static_cast<int>(

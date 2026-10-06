@@ -211,10 +211,19 @@ namespace mark
     {
         // YAML 0/1 -> C++ bool: configuration switch becomes semantic state.
         // YAML 0/1 → C++ bool：配置开关直接表达启用状态。
-        bool stabilization_enabled = false;          // 是否开启稳定
+        // 旧接口只有开关，无法描述时间权重；冻结起点兼容schema=1，预算无默认值。
+        bool stabilization_enabled = true;          // 是否开启稳定
 
         bool display_hold_enabled = false;           // 是否允许显示保持状态                     // 开关都是 0（关）
 
+        double reference_dt_ms = 14.0;
+        double reference_alpha = 0.7;
+        double history_max_gap_ms = 50.0;
+        double max_center_distance_diagonal_ratio = 0.5;
+        double min_area_ratio = 0.5;
+        double max_area_ratio = 2.0;
+        std::optional<double> correspondence_uncertainty_px;
+        std::optional<double> max_smoothing_deviation_px;
         int max_hold_frames = 5;                     // 最多保持5帧
     };
 
