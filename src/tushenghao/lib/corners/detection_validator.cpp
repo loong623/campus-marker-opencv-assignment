@@ -67,12 +67,9 @@ namespace mark
          * - 凸性；
          * - 线段相交。
          */
-        double cross(
-            const cv::Point2d &a,
-            const cv::Point2d &b)
+        double cross(const cv::Point2d &a, const cv::Point2d &b)
         {
-            return a.x * b.y -
-                   a.y * b.x;
+            return a.x * b.y - a.y * b.x;
         }
 
         /**
@@ -93,14 +90,9 @@ namespace mark
          * =0:
          * 三点共线
          */
-        double orientation(
-            const cv::Point2d &a,
-            const cv::Point2d &b,
-            const cv::Point2d &c)
+        double orientation(const cv::Point2d &a, const cv::Point2d &b, const cv::Point2d &c)
         {
-            return cross(
-                b - a,
-                c - a);
+            return cross(b - a, c - a);
         }
 
         /**
@@ -114,26 +106,18 @@ namespace mark
          *
          * 是否形成自交。
          */
-        bool segments_intersect(
-            const cv::Point2d &a,
-            const cv::Point2d &b,
-            const cv::Point2d &c,
-            const cv::Point2d &d)
+        bool segments_intersect(const cv::Point2d &a, const cv::Point2d &b, const cv::Point2d &c,
+                                const cv::Point2d &d)
         {
-            const double ab_c =
-                orientation(a, b, c);
+            const double ab_c = orientation(a, b, c);
 
-            const double ab_d =
-                orientation(a, b, d);
+            const double ab_d = orientation(a, b, d);
 
-            const double cd_a =
-                orientation(c, d, a);
+            const double cd_a = orientation(c, d, a);
 
-            const double cd_b =
-                orientation(c, d, b);
+            const double cd_b = orientation(c, d, b);
 
-            return ab_c * ab_d < 0.0 &&
-                   cd_a * cd_b < 0.0;
+            return ab_c * ab_d < 0.0 && cd_a * cd_b < 0.0;
         }
 
         /**
@@ -150,29 +134,19 @@ namespace mark
          * 所有叉积符号一致。
          */
         // 注：四点完全共线时叉积全 0，本函数返回 true（视为退化情况，实际检测器不会产生）。
-        bool is_convex(
-            const std::array<cv::Point2d, 4> &points)
+        bool is_convex(const std::array<cv::Point2d, 4> &points)
         {
             std::array<double, 4> turns;
 
-            for (int i = 0;
-                 i < 4;
-                 ++i)
+            for (int i = 0; i < 4; ++i)
             {
-                const cv::Point2d current =
-                    points[i];
+                const cv::Point2d current = points[i];
 
-                const cv::Point2d next =
-                    points[(i + 1) % 4];
+                const cv::Point2d next = points[(i + 1) % 4];
 
-                const cv::Point2d next_next =
-                    points[(i + 2) % 4];
+                const cv::Point2d next_next = points[(i + 2) % 4];
 
-                turns[i] =
-                    orientation(
-                        current,
-                        next,
-                        next_next);
+                turns[i] = orientation(current, next, next_next);
             }
             /*  现在把 0 当中性（不置 positive/negative），[+,0,+,+] 会返回 true,被判为凸。但伪代码要求"全部 >0 或全部 <0"，0 应该判为非凸。
                 bool positive = false;
@@ -204,8 +178,7 @@ namespace mark
             bool all_positive = true;
             bool all_negative = true;
 
-            for (double value :
-                 turns)
+            for (double value : turns)
             {
                 if (value <= 0.0)
                 {
@@ -231,25 +204,15 @@ namespace mark
          * - 越界访问；
          * - 两个物理角占同一屏幕位置。
          */
-        bool validate_mapping(
-            const ScreenOrder &order)
+        bool validate_mapping(const ScreenOrder &order)
         {
-            std::array<bool, 4> used =
-                {
-                    false,
-                    false,
-                    false,
-                    false};
+            std::array<bool, 4> used = {false, false, false, false};
 
-            for (int i = 0;
-                 i < 4;
-                 ++i)
+            for (int i = 0; i < 4; ++i)
             {
-                const int screen_index =
-                    order.physical_to_screen_[i];
+                const int screen_index = order.physical_to_screen_[i];
 
-                if (screen_index < 0 ||
-                    screen_index >= 4)
+                if (screen_index < 0 || screen_index >= 4)
                 {
                     return false;
                 }
@@ -278,21 +241,16 @@ namespace mark
          *
          * 不重新判断哪个点是什么。
          */
-        std::array<cv::Point2d, 4> reorder_points(
-            const CornerMeasurement &measurement,
-            const ScreenOrder &order)
+        std::array<cv::Point2d, 4> reorder_points(const CornerMeasurement &measurement,
+                                                  const ScreenOrder &order)
         {
             std::array<cv::Point2d, 4> result;
 
-            for (int physical_index = 0;
-                 physical_index < 4;
-                 ++physical_index)
+            for (int physical_index = 0; physical_index < 4; ++physical_index)
             {
-                const int screen_index =
-                    order.physical_to_screen_[physical_index];
+                const int screen_index = order.physical_to_screen_[physical_index];
 
-                result[screen_index] =
-                    measurement.physical_corners_[physical_index];
+                result[screen_index] = measurement.physical_corners_[physical_index];
             }
 
             return result;
@@ -301,23 +259,17 @@ namespace mark
         /**
          * @brief 检查点是否在原图范围内。
          */
-        bool inside_image(
-            const cv::Point2d &point,
-            cv::Size size)
+        bool inside_image(const cv::Point2d &point, cv::Size size)
         {
-            return point.x >= 0.0 &&
-                   point.x < size.width &&
-                   point.y >= 0.0 &&
+            return point.x >= 0.0 && point.x < size.width && point.y >= 0.0 &&
                    point.y < size.height;
         }
 
     } // namespace
 
-    DetectionValidation validateDetectionGeometry(
-        const CornerMeasurement &measurement,
-        const ScreenOrder &order,
-        cv::Size original_size,
-        const CornerConfig &config)
+    DetectionValidation validateDetectionGeometry(const CornerMeasurement &measurement,
+                                                  const ScreenOrder &order, cv::Size original_size,
+                                                  const CornerConfig &config)
     {
         // 最终发布前复查证据，不能假定上游已保证而只检查凸四点。
 
@@ -330,14 +282,11 @@ namespace mark
          * Step 1:
          * 检查物理角点是否有限。
          */
-        for (const auto &point :
-             measurement.physical_corners_)
+        for (const auto &point : measurement.physical_corners_)
         {
-            if (!std::isfinite(point.x) ||
-                !std::isfinite(point.y))
+            if (!std::isfinite(point.x) || !std::isfinite(point.y))
             {
-                result.rejection_reason_ =
-                    "角点存在非有限值";
+                result.rejection_reason_ = "角点存在非有限值";
 
                 return result;
             }
@@ -355,8 +304,7 @@ namespace mark
          */
         if (!validate_mapping(order))
         {
-            result.rejection_reason_ =
-                "physical_to_screen映射非法";
+            result.rejection_reason_ = "physical_to_screen映射非法";
 
             return result;
         }
@@ -367,32 +315,21 @@ namespace mark
          *
          * LT RT RB LB
          */
-        const auto points =
-            reorder_points(
-                measurement,
-                order);
+        const auto points = reorder_points(measurement, order);
 
         /*
          * Step 4:
          * 检查边是否退化。
          */
-        for (int i = 0;
-             i < 4;
-             ++i)
+        for (int i = 0; i < 4; ++i)
         {
-            const cv::Point2d edge =
-                points[(i + 1) % 4] -
-                points[i];
+            const cv::Point2d edge = points[(i + 1) % 4] - points[i];
 
-            const double length =
-                std::sqrt(
-                    edge.x * edge.x +
-                    edge.y * edge.y);
+            const double length = std::sqrt(edge.x * edge.x + edge.y * edge.y);
 
             if (length <= 0.0)
             {
-                result.rejection_reason_ =
-                    "检测四边形存在退化边";
+                result.rejection_reason_ = "检测四边形存在退化边";
 
                 return result;
             }
@@ -404,8 +341,7 @@ namespace mark
          */
         if (!is_convex(points))
         {
-            result.rejection_reason_ =
-                "检测四边形不是凸四边形";
+            result.rejection_reason_ = "检测四边形不是凸四边形";
 
             return result;
         }
@@ -419,19 +355,10 @@ namespace mark
          * e0/e2
          * e1/e3
          */
-        if (segments_intersect(
-                points[0],
-                points[1],
-                points[2],
-                points[3]) ||
-            segments_intersect(
-                points[1],
-                points[2],
-                points[3],
-                points[0]))
+        if (segments_intersect(points[0], points[1], points[2], points[3]) ||
+            segments_intersect(points[1], points[2], points[3], points[0]))
         {
-            result.rejection_reason_ =
-                "检测四边形自交";
+            result.rejection_reason_ = "检测四边形自交";
 
             return result;
         }
@@ -440,49 +367,66 @@ namespace mark
          * Step 7:
          * 检查是否越过原图边界。
          */
-        for (const auto &point :
-             points)
+        for (const auto &point : points)
         {
-            if (!inside_image(
-                    point,
-                    original_size))
+            if (!inside_image(point, original_size))
             {
-                result.rejection_reason_ =
-                    "角点超出原图范围";
+                result.rejection_reason_ = "角点超出原图范围";
 
                 return result;
             }
         }
 
-        if (original_size.width<=0 || original_size.height<=0) {
-            result.rejection_reason_="INVALID_ORIGINAL_SIZE"; return result;
+        if (original_size.width <= 0 || original_size.height <= 0)
+        {
+            result.rejection_reason_ = "INVALID_ORIGINAL_SIZE";
+            return result;
         }
         // 重建点与传入屏幕点必须一致，避免混用工作图/原图坐标域。
-        for (int i=0;i<4;++i) {
-            if (points[i]!=order.screen_points_[i]) {
-                result.rejection_reason_="SCREEN_MAPPING_MISMATCH"; return result;
+        for (int i = 0; i < 4; ++i)
+        {
+            if (points[i] != order.screen_points_[i])
+            {
+                result.rejection_reason_ = "SCREEN_MAPPING_MISMATCH";
+                return result;
             }
         }
-        if (!config.observation_budget_) {
-            result.rejection_reason_="CORNER_BUDGET_NOT_CONFIGURED"; return result;
+        if (!config.observation_budget_)
+        {
+            result.rejection_reason_ = "CORNER_BUDGET_NOT_CONFIGURED";
+            return result;
         }
         validateCornerObservationBudget(config);
         std::set<size_t> source_components;
-        for (int i=0;i<4;++i) {
-            const auto& e=measurement.evidence_[i];
+        for (int i = 0; i < 4; ++i)
+        {
+            const auto &e = measurement.evidence_[i];
             // 证据本身也必须处于同一原图域；画内四点不能掩盖画外支持段。
-            for (const auto& arc:e.original_support_arcs_) for (auto p:arc) {
-                if (!std::isfinite(p.x)||!std::isfinite(p.y)||!inside_image(p,original_size)) {
-                    result.rejection_reason_="EVIDENCE_OUTSIDE_ORIGINAL"; return result;
+            for (const auto &arc : e.original_support_arcs_)
+                for (auto p : arc)
+                {
+                    if (!std::isfinite(p.x) || !std::isfinite(p.y) ||
+                        !inside_image(p, original_size))
+                    {
+                        result.rejection_reason_ = "EVIDENCE_OUTSIDE_ORIGINAL";
+                        return result;
+                    }
                 }
+            for (auto p : e.original_turn_arc_)
+                if (!std::isfinite(p.x) || !std::isfinite(p.y) || !inside_image(p, original_size))
+                {
+                    result.rejection_reason_ = "TURN_OUTSIDE_ORIGINAL";
+                    return result;
+                }
+            if (e.frame_id_ != measurement.evidence_[0].frame_id_ ||
+                !source_components.insert(e.component_id_).second)
+            {
+                result.rejection_reason_ = "EVIDENCE_SOURCE_CONFLICT";
+                return result;
             }
-            for(auto p:e.original_turn_arc_) if (!std::isfinite(p.x)||!std::isfinite(p.y)||!inside_image(p,original_size)) {
-                result.rejection_reason_="TURN_OUTSIDE_ORIGINAL"; return result;
-            }
-            if (e.frame_id_!=measurement.evidence_[0].frame_id_ || !source_components.insert(e.component_id_).second) {
-                result.rejection_reason_="EVIDENCE_SOURCE_CONFLICT"; return result;
-            }
-            if (!validateCornerEvidence(e,measurement.physical_corners_[i],i,config,result.rejection_reason_)) return result;
+            if (!validateCornerEvidence(e, measurement.physical_corners_[i], i, config,
+                                        result.rejection_reason_))
+                return result;
         }
 
         /*

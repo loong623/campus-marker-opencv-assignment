@@ -3,9 +3,13 @@
 #include "pipeline/decode_stage.hpp"
 #include "pipeline/temporal_stabilizer.hpp"
 #include "pipeline/display_history.hpp"
-namespace mark {
-class FrameDiagnosticsContext;
-FrameResult finalizeDecodedFrame(const DecodeStageResult&,const FrameStamp&,cv::Size,TemporalStabilizer&,DisplayHistory&,FrameDiagnosticsContext*);
-FrameResult finalizeDecodedFrame(const DecodeStageResult&,const FrameStamp&,cv::Size,
-                                 TemporalStabilizer&,DisplayHistory&);
+
+namespace mark
+{
+    class FrameDiagnosticsContext;
+    FrameResult finalizeDecodedFrame(const DecodeStageResult &, const FrameStamp &, cv::Size,
+                                     TemporalStabilizer &, DisplayHistory &,
+                                     FrameDiagnosticsContext *);
+    FrameResult finalizeDecodedFrame(const DecodeStageResult &, const FrameStamp &, cv::Size,
+                                     TemporalStabilizer &, DisplayHistory &);
 }

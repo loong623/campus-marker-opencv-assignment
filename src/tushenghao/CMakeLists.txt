@@ -90,6 +90,10 @@ foreach(MARK_TEST_NAME IN LISTS MARK_TEST_NAMES)
     add_test(NAME ${MARK_TEST_NAME} COMMAND ${MARK_TEST_NAME})
 endforeach()
 
+# 计数 helper 仅给此工具口径测试使用，不向 Detector 或公共使用者传播。
+target_include_directories(corner_edge_fit_test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/block3_fixture/common")
+
 # 摘要/OpenSSL只属于审计可执行程序，Detector库不引入JSON/OpenSSL。
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 add_executable(decode_audit tools/audit/decode_audit.cpp)

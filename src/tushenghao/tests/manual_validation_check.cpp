@@ -49,13 +49,9 @@ namespace
         // 顶点相对位置：锚点是 vertices[3] = (8,8) 相对 (0,0) 的偏移
         float ox = cx - 8.0f;
         float oy = cy - 8.0f;
-        observation.simplified_polygon_ = {
-            {ox + 0.0f, oy + 0.0f},
-            {ox + 32.0f, oy + 0.0f},
-            {ox + 32.0f, oy + 8.0f},
-            {ox + 8.0f, oy + 8.0f},
-            {ox + 8.0f, oy + 32.0f},
-            {ox + 0.0f, oy + 32.0f}};
+        observation.simplified_polygon_ = {{ox + 0.0f, oy + 0.0f},  {ox + 32.0f, oy + 0.0f},
+                                           {ox + 32.0f, oy + 8.0f}, {ox + 8.0f, oy + 8.0f},
+                                           {ox + 8.0f, oy + 32.0f}, {ox + 0.0f, oy + 32.0f}};
         mark::TurnFeature turn;
         turn.vertex_index_ = 3;
         turn.type_ = mark::TurnType::CONCAVE;
@@ -66,7 +62,8 @@ namespace
         mark::WhiteComponent component;
         for (auto p : observation.simplified_polygon_)
             component.contour_.emplace_back(p);
-        observation.l_topology_candidates_ = mark::observeLTopologies(component, mark::GeometryConfig{});
+        observation.l_topology_candidates_ =
+            mark::observeLTopologies(component, mark::GeometryConfig{});
         return observation;
     }
 
@@ -117,8 +114,7 @@ namespace
         geometry.schema_version = 1;
         // 2026-10-05 修正：顶点必须与 anchor 一致，
         // 否则投影后的顶点与观测轮廓差几十像素，全被误拒。
-        const std::vector<cv::Point2f> anchors = {
-            {8.0f, 8.0f}, {72.0f, 72.0f}, {8.0f, 72.0f}};
+        const std::vector<cv::Point2f> anchors = {{8.0f, 8.0f}, {72.0f, 72.0f}, {8.0f, 72.0f}};
         int idx = 0;
         for (const auto &id : {"L0", "L1", "L2"})
         {
@@ -128,8 +124,9 @@ namespace
             // 顶点以 anchor 为基准：anchor 是 vertices[3] = (8,8) 相对 (0,0)
             float ox = a.x - 8.0f;
             float oy = a.y - 8.0f;
-            polygon.vertices = {
-                {ox + 0.0f, oy + 0.0f}, {ox + 32.0f, oy + 0.0f}, {ox + 32.0f, oy + 8.0f}, {ox + 8.0f, oy + 8.0f}, {ox + 8.0f, oy + 32.0f}, {ox + 0.0f, oy + 32.0f}};
+            polygon.vertices = {{ox + 0.0f, oy + 0.0f},  {ox + 32.0f, oy + 0.0f},
+                                {ox + 32.0f, oy + 8.0f}, {ox + 8.0f, oy + 8.0f},
+                                {ox + 8.0f, oy + 32.0f}, {ox + 0.0f, oy + 32.0f}};
             polygon.anchor = a;
             polygon.area = 448.0;
             geometry.polygons.push_back(polygon);
@@ -154,7 +151,8 @@ namespace
         float oy = cy - 8.0f;
         int oxi = static_cast<int>(ox);
         int oyi = static_cast<int>(oy);
-        comp.contour_ = {{oxi, oyi}, {oxi + 32, oyi}, {oxi + 32, oyi + 8}, {oxi + 8, oyi + 8}, {oxi + 8, oyi + 32}, {oxi, oyi + 32}};
+        comp.contour_ = {{oxi, oyi},         {oxi + 32, oyi},     {oxi + 32, oyi + 8},
+                         {oxi + 8, oyi + 8}, {oxi + 8, oyi + 32}, {oxi, oyi + 32}};
         comp.touches_border_ = false;
         return comp;
     }

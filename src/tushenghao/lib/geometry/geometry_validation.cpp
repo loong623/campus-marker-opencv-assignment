@@ -7,6 +7,7 @@ Step 6 一下吐出好几个假设（"这三个白块可能是这样对应，也
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 
 #include <opencv2/imgproc.hpp>
@@ -18,9 +19,17 @@ namespace mark
     {
 
         // 新观察层保留实际组件ID；验证也按来源查询，不能拿ID作容器下标。
-        const WhiteComponent* findComponent(const std::vector<WhiteComponent>& components,size_t id) {
-            const WhiteComponent* found=nullptr;
-            for(const auto& c:components)if(c.component_id_==id){if(found)throw std::invalid_argument("DUPLICATE_COMPONENT_ID");found=&c;}
+        const WhiteComponent *findComponent(const std::vector<WhiteComponent> &components,
+                                            size_t id)
+        {
+            const WhiteComponent *found = nullptr;
+            for (const auto &c : components)
+                if (c.component_id_ == id)
+                {
+                    if (found)
+                        throw std::invalid_argument("DUPLICATE_COMPONENT_ID");
+                    found = &c;
+                }
             return found;
         }
 
@@ -33,12 +42,9 @@ namespace mark
          *
          * 不是 detector 已知答案。
          */
-        const GeometryPolygon *findPolygon(
-            const MarkerGeometry &geometry,
-            const std::string &id)
+        const GeometryPolygon *findPolygon(const MarkerGeometry &geometry, const std::string &id)
         {
-            for (const auto &polygon :
-                 geometry.polygons)
+            for (const auto &polygon : geometry.polygons)
             {
                 if (polygon.id == id)
                 {
@@ -113,13 +119,13 @@ namespace mark
          * 仿射正确时顶点应落在轮廓上（距离≈0），
          * 仿射错误时顶点偏离轮廓（距离大），该拒就拒。
          */
-        double polygonResidual(
-            const std::vector<cv::Point2f> &projected,
-            const std::vector<cv::Point> &observed)
+        double polygonResidual(const std::vector<cv::Point2f> &projected,
+                               const std::vector<cv::Point> &observed)
         {
             if (projected.empty() || observed.empty())
             {
-                return std::numeric_limits<double>::max();
+                // 缺少测量输入时没有真实距离，不能用有限占位数冒充结果。
+                return std::numeric_limits<double>::quiet_NaN();
             }
 
             // 转成 Point2f 给 pointPolygonTest 用
@@ -127,9 +133,7 @@ namespace mark
             contour_f.reserve(observed.size());
             for (const auto &p : observed)
             {
-                contour_f.emplace_back(
-                    static_cast<float>(p.x),
-                    static_cast<float>(p.y));
+                contour_f.emplace_back(static_cast<float>(p.x), static_cast<float>(p.y));
             }
 
             // 每个投影顶点到观测轮廓的最短距离，取平均
@@ -137,9 +141,13 @@ namespace mark
             double total = 0.0;
             for (const auto &pt : projected)
             {
+                // 非有限投影不可测；先拒绝，避免 OpenCV 距离调用产生伪零。
+                if (!std::isfinite(pt.x) || !std::isfinite(pt.y))
+                {
+                    return std::numeric_limits<double>::quiet_NaN();
+                }
                 // pointPolygonTest 返回带符号距离，abs 取绝对值
-                double dist = std::abs(
-                    cv::pointPolygonTest(contour_f, pt, true));
+                double dist = std::abs(cv::pointPolygonTest(contour_f, pt, true));
                 total += dist;
             }
 
@@ -153,64 +161,66 @@ namespace mark
          *
          * 检查 hypothesis 是否几何一致。
          */
-        bool checkGeometricConsistency(
-            const GeometryHypothesis &hypothesis,
-            const MarkerGeometry &geometry,
-            const std::vector<WhiteComponent> &components,
-            double max_residual)
+        bool checkGeometricConsistency(const GeometryHypothesis &hypothesis,
+                                       const MarkerGeometry &geometry,
+                                       const std::vector<WhiteComponent> &components,
+                                       double max_residual, double &measured_residual)
         {
+            // 旧实现只作判定、不回填，诊断一直显示占位 0；复用原距离逐部件取最大。
+            // 完整检查结束前不发布统计，空对应也不能被解释为真实零残差。
+            if (hypothesis.assignments_.empty())
+            {
+                return false;
+            }
+            double maximum = 0.0;
 
-            for (const auto &assignment :
-                 hypothesis.assignments_)
+            for (const auto &assignment : hypothesis.assignments_)
             {
 
-                const auto *polygon =
-                    findPolygon(
-                        geometry,
-                        assignment.model_part_id_);
+                const auto *polygon = findPolygon(geometry, assignment.model_part_id_);
 
                 if (polygon == nullptr)
                 {
                     return false;
                 }
 
-                const auto* source = findComponent(components,assignment.component_id_);
-                if(!source)return false;
-                const auto& component = *source;
+                const auto *source = findComponent(components, assignment.component_id_);
+                if (!source)
+                    return false;
+                const auto &component = *source;
 
-                std::vector<cv::Point2f>
-                    projected;
+                // 空点集不可计算，须在 cv::transform 之前拒绝，不能产生占位零或断言异常。
+                if (polygon->vertices.empty() || component.contour_.empty())
+                {
+                    return false;
+                }
 
-                cv::transform(
-                    polygon->vertices,
-                    projected,
-                    hypothesis.affine_transform_);
+                std::vector<cv::Point2f> projected;
 
-                const double residual =
-                    polygonResidual(
-                        projected,
-                        component.contour_);
+                cv::transform(polygon->vertices, projected, hypothesis.affine_transform_);
+
+                const double residual = polygonResidual(projected, component.contour_);
 
                 // debug
                 // std::cerr << "[DEBUG] residual: " << residual << " max: " << max_residual << std::endl;
 
-                if (residual > max_residual)
+                if (!std::isfinite(residual) || residual < 0.0 || residual > max_residual)
                 {
                     return false;
                 }
+                maximum = std::max(maximum, residual);
             }
 
+            measured_residual = maximum;
             return true;
         }
 
         /*
          * 计算多边形面积。
          */
-        double polygonArea(
-            const std::vector<cv::Point2f> &points)
+        double polygonArea(const std::vector<cv::Point2f> &points)
         {
-            return std::abs(
-                cv::contourArea(points));
+            return std::abs(cv::contourArea(points));
         }
 
         /*
@@ -221,54 +231,40 @@ namespace mark
          * 超范围不直接删除，
          * 由完整性阶段降级。
          */
-        bool checkAreaRatio(
-            const GeometryHypothesis &hypothesis,
-            const MarkerGeometry &geometry,
-            const std::vector<WhiteComponent> &components,
-            double min_ratio,
-            double max_ratio)
+        bool checkAreaRatio(const GeometryHypothesis &hypothesis, const MarkerGeometry &geometry,
+                            const std::vector<WhiteComponent> &components, double min_ratio,
+                            double max_ratio)
         {
 
-            for (const auto &assignment :
-                 hypothesis.assignments_)
+            for (const auto &assignment : hypothesis.assignments_)
             {
 
-                const auto *polygon =
-                    findPolygon(
-                        geometry,
-                        assignment.model_part_id_);
+                const auto *polygon = findPolygon(geometry, assignment.model_part_id_);
 
                 if (polygon == nullptr)
                 {
                     return false;
                 }
 
-                const auto* source = findComponent(components,assignment.component_id_);
-                if(!source)return false;
-                const auto& component = *source;
+                const auto *source = findComponent(components, assignment.component_id_);
+                if (!source)
+                    return false;
+                const auto &component = *source;
 
-                std::vector<cv::Point2f>
-                    projected;
+                std::vector<cv::Point2f> projected;
 
-                cv::transform(
-                    polygon->vertices,
-                    projected,
-                    hypothesis.affine_transform_);
+                cv::transform(polygon->vertices, projected, hypothesis.affine_transform_);
 
-                const double projected_area =
-                    polygonArea(projected);
+                const double projected_area = polygonArea(projected);
 
                 if (component.area_ <= 0.0)
                 {
                     return false;
                 }
 
-                const double ratio =
-                    projected_area /
-                    component.area_;
+                const double ratio = projected_area / component.area_;
 
-                if (ratio < min_ratio ||
-                    ratio > max_ratio)
+                if (ratio < min_ratio || ratio > max_ratio)
                 {
                     return false;
                 }
@@ -289,39 +285,33 @@ namespace mark
          *
          * 不输出概率。
          */
-        GeometryCompleteness evaluateCompleteness(
-            const GeometryHypothesis &hypothesis,
-            const std::vector<WhiteComponent> &components)
+        GeometryCompleteness evaluateCompleteness(const GeometryHypothesis &hypothesis,
+                                                  const std::vector<WhiteComponent> &components)
         {
 
-            for (const auto &assignment :
-                 hypothesis.assignments_)
+            for (const auto &assignment : hypothesis.assignments_)
             {
 
-                const auto* component = findComponent(components,assignment.component_id_);
-                if(!component||component->touches_border_)
+                const auto *component = findComponent(components, assignment.component_id_);
+                if (!component || component->touches_border_)
                     return GeometryCompleteness::CLEARLY_INCOMPLETE;
             }
 
-            return GeometryCompleteness::
-                PENDING_VALIDATION;
+            return GeometryCompleteness::PENDING_VALIDATION;
         }
 
     } // namespace
 
-    GeometryBatch validateGeometryBatch(
-        const GeometryBatch &batch,
-        const MarkerGeometry &geometry,
-        const std::vector<WhiteComponent> &components,
-        const GeometryConfig &config)
+    GeometryBatch validateGeometryBatch(const GeometryBatch &batch, const MarkerGeometry &geometry,
+                                        const std::vector<WhiteComponent> &components,
+                                        const GeometryConfig &config)
     {
 
         GeometryBatch output;
         // 保留观察/锚点搜索的分母与截断原因，便于全视频逐阶段归因。
         output.diagnostics_ = batch.diagnostics_;
 
-        for (const auto &hypothesis :
-             batch.hypotheses_)
+        for (const auto &hypothesis : batch.hypotheses_)
         {
 
             /*
@@ -329,50 +319,35 @@ namespace mark
              *
              * 不修改 Step6 原始结果。
              */
-            GeometryHypothesis checked =
-                hypothesis;
+            GeometryHypothesis checked = hypothesis;
 
-            if (!checkGeometricConsistency(
-                    checked,
-                    geometry,
-                    components,
-                    config.max_validation_residual_))
+            double measured_residual = -1.0;
+            if (!checkGeometricConsistency(checked, geometry, components,
+                                           config.max_validation_residual_, measured_residual))
             {
 
-                output.diagnostics_
-                    .push_back(
-                        "hypothesis rejected: "
-                        "geometric residual too large");
+                output.diagnostics_.push_back("hypothesis rejected: "
+                                              "geometric residual too large");
 
                 continue;
             }
 
-            if (!checkAreaRatio(
-                    checked,
-                    geometry,
-                    components,
-                    config.min_area_ratio_,
-                    config.max_area_ratio_))
-            {
-                checked.completeness_ =
-                    GeometryCompleteness::
-                        CLEARLY_INCOMPLETE;
+            // 在原面积比/完整性分支之前回填本次真实测量；输入 batch 仍只读。
+            checked.validation_residual_ = measured_residual;
 
-                checked.evidence_
-                    .push_back(
-                        "area ratio outside validation range");
+            if (!checkAreaRatio(checked, geometry, components, config.min_area_ratio_,
+                                config.max_area_ratio_))
+            {
+                checked.completeness_ = GeometryCompleteness::CLEARLY_INCOMPLETE;
+
+                checked.evidence_.push_back("area ratio outside validation range");
             }
             else
             {
-                checked.completeness_ =
-                    evaluateCompleteness(
-                        checked,
-                        components);
+                checked.completeness_ = evaluateCompleteness(checked, components);
             }
 
-            output.hypotheses_
-                .push_back(
-                    checked);
+            output.hypotheses_.push_back(checked);
         }
 
         /*
@@ -381,8 +356,7 @@ namespace mark
          * Step7 保留这个状态，
          * 不重新解释。
          */
-        output.resource_truncated_ =
-            batch.resource_truncated_;
+        output.resource_truncated_ = batch.resource_truncated_;
 
         return output;
     }

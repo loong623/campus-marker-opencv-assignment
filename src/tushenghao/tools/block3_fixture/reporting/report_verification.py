@@ -15,6 +15,16 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def count_unique_support_pixels(support_arc):
+    """独立核查实际坐标；回走访问不能充当新像素，不依赖测量输出的自述点数。"""
+    pixels = set()
+    for point in support_arc:
+        if len(point) != 2 or not all(math.isfinite(value) for value in point):
+            raise ValueError("SUPPORT_PIXEL_COORDINATE_NOT_FINITE_OR_NOT_2D")
+        pixels.add(tuple(point))
+    return len(pixels)
+
+
 def screen_order(physical):
     """冻结四循环、全局最小能量、64ε集合和(y,x)字典序的独立工具核查。"""
     xmin, xmax = min(p[0] for p in physical), max(p[0] for p in physical)
@@ -64,7 +74,7 @@ def main():
                 measurement = min(r['measurements'], key=distance)
                 bad_screen += screen_order([e['intersection'] for e in measurement])!=orientation
                 bad_evidence += len(measurement)!=4 or len({e['component_id'] for e in measurement})!=4 or any(
-                    len(e['support_arcs'])!=2 or any(len(arc)<10 for arc in e['support_arcs']) for e in measurement)
+                    len(e['support_arcs'])!=2 or any(count_unique_support_pixels(arc)<10 for arc in e['support_arcs']) for e in measurement)
             if 'bbox' in d:
                 bbox = [min(p[0] for p in points),min(p[1] for p in points),max(p[0] for p in points)-min(p[0] for p in points),max(p[1] for p in points)-min(p[1] for p in points)]
                 bad_bbox += any(abs(a-b)>64*2**-23*max(1,abs(a),abs(b)) for a,b in zip(bbox,d['bbox']))

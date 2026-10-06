@@ -13,7 +13,14 @@ search_truncated：即使只有一个假设、方向本该唯一，传 true 进�
 #include <cmath>
 
 // 普通C++检查在Release仍有效；每用例失败由main独立记录，不引入测试框架。
-namespace { void check(bool ok, const char* message) { if (!ok) throw std::runtime_error(message); } }
+namespace
+{
+    void check(bool ok, const char *message)
+    {
+        if (!ok)
+            throw std::runtime_error(message);
+    }
+}
 
 #include "corners/semantic_resolver.hpp"
 #include "mark/detector_config.hpp"
@@ -33,10 +40,7 @@ namespace mark
          * - 不测试视觉检测；
          * - 只测试 Step 5 语义归并。
          */
-        CornerMeasurement make_measurement(
-            double offset_x,
-            double offset_y,
-            double error)
+        CornerMeasurement make_measurement(double offset_x, double offset_y, double error)
         {
             CornerMeasurement measurement;
 
@@ -46,12 +50,10 @@ namespace mark
              * 这里故意使用 cv::Point2d 显式构造，
              * 避免 initializer_list 类型推导问题。
              */
-            measurement.physical_corners_ =
-                {
-                    cv::Point2d{offset_x + 0.0, offset_y + 0.0},
-                    cv::Point2d{offset_x + 10.0, offset_y + 0.0},
-                    cv::Point2d{offset_x + 10.0, offset_y + 10.0},
-                    cv::Point2d{offset_x + 0.0, offset_y + 10.0}};
+            measurement.physical_corners_ = {cv::Point2d{offset_x + 0.0, offset_y + 0.0},
+                                             cv::Point2d{offset_x + 10.0, offset_y + 0.0},
+                                             cv::Point2d{offset_x + 10.0, offset_y + 10.0},
+                                             cv::Point2d{offset_x + 0.0, offset_y + 10.0}};
 
             /*
              * 四个角证据都手动填残差。
@@ -62,8 +64,7 @@ namespace mark
              *
              * 选择残差最小的已有 measurement。
              */
-            for (auto &evidence :
-                 measurement.evidence_)
+            for (auto &evidence : measurement.evidence_)
             {
                 evidence.error_ = error;
             }
@@ -81,20 +82,14 @@ namespace mark
          *
          * 几何一致 != 方向唯一。
          */
-        CornerMeasurement make_reversed_measurement(
-            double error)
+        CornerMeasurement make_reversed_measurement(double error)
         {
             CornerMeasurement measurement;
 
-            measurement.physical_corners_ =
-                {
-                    cv::Point2d{10.0, 10.0},
-                    cv::Point2d{0.0, 10.0},
-                    cv::Point2d{0.0, 0.0},
-                    cv::Point2d{10.0, 0.0}};
+            measurement.physical_corners_ = {cv::Point2d{10.0, 10.0}, cv::Point2d{0.0, 10.0},
+                                             cv::Point2d{0.0, 0.0}, cv::Point2d{10.0, 0.0}};
 
-            for (auto &evidence :
-                 measurement.evidence_)
+            for (auto &evidence : measurement.evidence_)
             {
                 evidence.error_ = error;
             }
@@ -119,11 +114,7 @@ namespace mark
 
     void EmptyInputFails()
     {
-        auto result =
-            resolveSemantics(
-                {},
-                false,
-                make_test_config());
+        auto result = resolveSemantics({}, false, make_test_config());
 
         check(!(result.geometry_consistent_), "FALSE check at semantic_resolver:128");
 
@@ -136,17 +127,9 @@ namespace mark
 
     void SingleMeasurementIsUnique()
     {
-        auto measurement =
-            make_measurement(
-                0.0,
-                0.0,
-                1.0);
+        auto measurement = make_measurement(0.0, 0.0, 1.0);
 
-        auto result =
-            resolveSemantics(
-                {measurement},
-                false,
-                make_test_config());
+        auto result = resolveSemantics({measurement}, false, make_test_config());
 
         check(bool(result.geometry_consistent_), "TRUE check at semantic_resolver:151");
 
@@ -159,24 +142,11 @@ namespace mark
 
     void SameGeometrySameOrientationKeepsLowerResidual()
     {
-        auto high_error =
-            make_measurement(
-                0.0,
-                0.0,
-                10.0);
+        auto high_error = make_measurement(0.0, 0.0, 10.0);
 
-        auto low_error =
-            make_measurement(
-                0.0,
-                0.0,
-                1.0);
+        auto low_error = make_measurement(0.0, 0.0, 1.0);
 
-        auto result =
-            resolveSemantics(
-                {high_error,
-                 low_error},
-                false,
-                make_test_config());
+        auto result = resolveSemantics({high_error, low_error}, false, make_test_config());
 
         check(bool(result.geometry_consistent_), "TRUE check at semantic_resolver:181");
 
@@ -190,9 +160,8 @@ namespace mark
          *
          * 这里检查残差更小的那个。
          */
-        check((result.retained_measurements_[0]
-                .evidence_[0]
-                .error_) == (1.0), "DOUBLE_EQ check at semantic_resolver:193");
+        check((result.retained_measurements_[0].evidence_[0].error_) == (1.0),
+              "DOUBLE_EQ check at semantic_resolver:193");
     }
 
     /* 测试设计点：
@@ -209,22 +178,11 @@ namespace mark
     */
     void SameGeometryDifferentOrientationIsAmbiguous()
     {
-        auto first =
-            make_measurement(
-                0.0,
-                0.0,
-                1.0);
+        auto first = make_measurement(0.0, 0.0, 1.0);
 
-        auto second =
-            make_reversed_measurement(
-                2.0);
+        auto second = make_reversed_measurement(2.0);
 
-        auto result =
-            resolveSemantics(
-                {first,
-                 second},
-                false,
-                make_test_config());
+        auto result = resolveSemantics({first, second}, false, make_test_config());
 
         check(bool(result.geometry_consistent_), "TRUE check at semantic_resolver:229");
 
@@ -239,28 +197,15 @@ namespace mark
 
     void GeometryConflictFails()
     {
-        auto first =
-            make_measurement(
-                0.0,
-                0.0,
-                1.0);
+        auto first = make_measurement(0.0, 0.0, 1.0);
 
         /*
          * 平移距离远超过阈值，
          * 两个 measurement 不能解释为同一几何对象。
          */
-        auto second =
-            make_measurement(
-                100.0,
-                100.0,
-                1.0);
+        auto second = make_measurement(100.0, 100.0, 1.0);
 
-        auto result =
-            resolveSemantics(
-                {first,
-                 second},
-                false,
-                make_test_config());
+        auto result = resolveSemantics({first, second}, false, make_test_config());
 
         check(!(result.geometry_consistent_), "FALSE check at semantic_resolver:265");
 
@@ -271,17 +216,9 @@ namespace mark
 
     void SearchTruncatedForcesOrientationFalse()
     {
-        auto measurement =
-            make_measurement(
-                0.0,
-                0.0,
-                1.0);
+        auto measurement = make_measurement(0.0, 0.0, 1.0);
 
-        auto result =
-            resolveSemantics(
-                {measurement},
-                true,
-                make_test_config());
+        auto result = resolveSemantics({measurement}, true, make_test_config());
 
         check(bool(result.geometry_consistent_), "TRUE check at semantic_resolver:286");
 
@@ -295,18 +232,33 @@ namespace mark
     }
 
 } // namespace mark
+
 // 每个历史用例仍独立执行，失败不会跳过其它用例。
-int main() {
- int failures=0;
- const std::pair<const char*, void(*)()> cases[] = {
-  {"EmptyInputFails",mark::EmptyInputFails},
-  {"SingleMeasurementIsUnique",mark::SingleMeasurementIsUnique},
-  {"SameGeometrySameOrientationKeepsLowerResidual",mark::SameGeometrySameOrientationKeepsLowerResidual},
-  {"SameGeometryDifferentOrientationIsAmbiguous",mark::SameGeometryDifferentOrientationIsAmbiguous},
-  {"GeometryConflictFails",mark::GeometryConflictFails},
-  {"SearchTruncatedForcesOrientationFalse",mark::SearchTruncatedForcesOrientationFalse},
- };
- for (auto item:cases) { try { item.second(); std::cout<<"PASS "<<item.first<<"\n"; }
- catch(const std::exception& e) { ++failures; std::cerr<<"FAIL "<<item.first<<": "<<e.what()<<"\n"; } }
- return failures ? 1 : 0;
+int main()
+{
+    int failures = 0;
+    const std::pair<const char *, void (*)()> cases[] = {
+        {"EmptyInputFails", mark::EmptyInputFails},
+        {"SingleMeasurementIsUnique", mark::SingleMeasurementIsUnique},
+        {"SameGeometrySameOrientationKeepsLowerResidual",
+         mark::SameGeometrySameOrientationKeepsLowerResidual},
+        {"SameGeometryDifferentOrientationIsAmbiguous",
+         mark::SameGeometryDifferentOrientationIsAmbiguous},
+        {"GeometryConflictFails", mark::GeometryConflictFails},
+        {"SearchTruncatedForcesOrientationFalse", mark::SearchTruncatedForcesOrientationFalse},
+    };
+    for (auto item : cases)
+    {
+        try
+        {
+            item.second();
+            std::cout << "PASS " << item.first << "\n";
+        }
+        catch (const std::exception &e)
+        {
+            ++failures;
+            std::cerr << "FAIL " << item.first << ": " << e.what() << "\n";
+        }
+    }
+    return failures ? 1 : 0;
 }

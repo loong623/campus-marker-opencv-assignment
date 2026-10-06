@@ -24,6 +24,7 @@ file(GLOB_RECURSE MEASURE_SOURCES CONFIGURE_DEPENDS
 )
 file(GLOB_RECURSE MEASURE_TOOL_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 list(APPEND MEASURE_SOURCES ${MEASURE_TOOL_SOURCES}
+    "${CMAKE_CURRENT_SOURCE_DIR}/common/support_pixel_count.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/common/file_digest.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../test_support/block3_fixture.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../CMakeLists.txt"

@@ -108,3 +108,8 @@ G-CLEAN 未验证：无可用干净 Linux 环境入口；用户明确要求保�
 三L锚点逐候选资格修复，decode保守竞争规则保持。原基线Release/Debug23/23；本次经用户批准补manual mock来源后，两种构建均25/25，A01–A13全部通过。初次24/25的受阻日志保留。
 Release完整1676及专项机器核查PASS，864→976，旧A118恢复112、残留6，旧成功零退化，A外状态零变化；20个旧成功四点改变、方向0变化、132帧review证据已归档。Debug完整1676及专项核查PASS，两构建逐帧公共结果零差异、指纹均0d2d2e63aef753bc；用户已确认132帧人工复核全过，Path A本轮验收通过。
 原13项报告保持，原工程通过不代表整个闪烁解决。PathB／564无假设延期fix2。详见[专项验收](path_a_acceptance.md)、[施工日志](path_a_fix_log.md)及[证据目录](evidence/final-fixes/path-a/)。
+
+
+## Fix2-sweep 后续小修补记（2026-10-07）
+
+本轮 F01/F01-C 唯一支持像素计数及 F02 真实几何验证残差已实施，README 历史迁移与独立排版完成。Release/Debug 各 25/25；终版 1676 帧算法载荷零回归。未改预算、拟合权重或旧调查结论，不宣称解决闪烁。本轮归档与三个自建 build 清理已完成，结果以[独立验收](fix2_followup_acceptance.md)及[施工记录](fix2_followup_log.md)为准；本节之前的历史内容原样保留。

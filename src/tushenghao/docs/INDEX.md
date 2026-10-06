@@ -30,3 +30,7 @@
 历史 Block5 失败 fixture 与未实现视频导出不代表当前状态；原记录保持。
 
 Path A 推荐顺序：[专项验收](path_a_acceptance.md) → [施工日志](path_a_fix_log.md) → [永久证据](evidence/final-fixes/path-a/) → [132帧review索引](evidence/final-fixes/path-a/frames/review_index.csv)。两种构建25/25，Release/Debug完整1676与专项机器核查均PASS，逐帧公共结果零差异，用户132/132 review已通过；原受阻记录与批准后的进展均保留。
+
+- [Fix2-sweep 后续小修施工记录](fix2_followup_log.md)：计数、几何残差、README 迁移和独立排版。
+- [Fix2-sweep 后续小修验收](fix2_followup_acceptance.md)：A01–A10 实测、双配置测试和同视频回归。
+- [README 历史全文](history/README_before_fix2_followup.md)：原入口完整保留，当前操作见项目 README。

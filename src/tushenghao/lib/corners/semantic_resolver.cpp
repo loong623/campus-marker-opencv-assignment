@@ -42,25 +42,18 @@ namespace mark
          *
          * 而不是重新解释物理身份。
          */
-        double point_set_distance(
-            const std::array<cv::Point2d, 4> &a,
-            const std::array<cv::Point2d, 4> &b)
+        double point_set_distance(const std::array<cv::Point2d, 4> &a,
+                                  const std::array<cv::Point2d, 4> &b)
         {
             double distance = 0.0;
 
-            for (size_t i = 0;
-                 i < 4;
-                 ++i)
+            for (size_t i = 0; i < 4; ++i)
             {
-                const double dx =
-                    a[i].x - b[i].x;
+                const double dx = a[i].x - b[i].x;
 
-                const double dy =
-                    a[i].y - b[i].y;
+                const double dy = a[i].y - b[i].y;
 
-                distance +=
-                    dx * dx +
-                    dy * dy;
+                distance += dx * dx + dy * dy;
             }
 
             return distance;
@@ -84,32 +77,25 @@ namespace mark
          * - 正向；
          * - 反向。
          */
-        std::array<cv::Point2d, 4> make_cyclic_order(
-            const std::array<cv::Point2d, 4> &points,
-            int start,
-            bool reverse)
+        std::array<cv::Point2d, 4> make_cyclic_order(const std::array<cv::Point2d, 4> &points,
+                                                     int start, bool reverse)
         {
             std::array<cv::Point2d, 4> result;
 
-            for (int i = 0;
-                 i < 4;
-                 ++i)
+            for (int i = 0; i < 4; ++i)
             {
                 int index;
 
                 if (!reverse)
                 {
-                    index =
-                        (start + i) % 4;
+                    index = (start + i) % 4;
                 }
                 else
                 {
-                    index =
-                        (start - i + 8) % 4;
+                    index = (start - i + 8) % 4;
                 }
 
-                result[i] =
-                    points[index];
+                result[i] = points[index];
             }
 
             return result;
@@ -130,36 +116,20 @@ namespace mark
          * 3. 取最小距离；
          * 4. 与 semantic_geometry_threshold_ 比较。
          */
-        bool geometry_equal(
-            const CornerMeasurement &a,
-            const CornerMeasurement &b,
-            double threshold)
+        bool geometry_equal(const CornerMeasurement &a, const CornerMeasurement &b,
+                            double threshold)
         {
-            double best_distance =
-                std::numeric_limits<double>::max();
+            double best_distance = std::numeric_limits<double>::max();
 
-            for (int start = 0;
-                 start < 4;
-                 ++start)
+            for (int start = 0; start < 4; ++start)
             {
-                for (bool reverse :
-                     {false, true})
+                for (bool reverse : {false, true})
                 {
-                    auto candidate =
-                        make_cyclic_order(
-                            b.physical_corners_,
-                            start,
-                            reverse);
+                    auto candidate = make_cyclic_order(b.physical_corners_, start, reverse);
 
-                    const double distance =
-                        point_set_distance(
-                            a.physical_corners_,
-                            candidate);
+                    const double distance = point_set_distance(a.physical_corners_, candidate);
 
-                    best_distance =
-                        std::min(
-                            best_distance,
-                            distance);
+                    best_distance = std::min(best_distance, distance);
                 }
             }
 
@@ -182,16 +152,13 @@ namespace mark
          * Step 5 只负责语义选择，
          * 不重新评价图像证据。
          */
-        double measurement_residual(
-            const CornerMeasurement &measurement)
+        double measurement_residual(const CornerMeasurement &measurement)
         {
             double residual = 0.0;
 
-            for (const auto &evidence :
-                 measurement.evidence_)
+            for (const auto &evidence : measurement.evidence_)
             {
-                residual +=
-                    evidence.error_;
+                residual += evidence.error_;
             }
 
             return residual;
@@ -217,75 +184,51 @@ namespace mark
          *
          * 说明存在方向歧义。
          */
-        bool orientation_equal(
-            const CornerMeasurement &a,
-            const CornerMeasurement &b)
+        bool orientation_equal(const CornerMeasurement &a, const CornerMeasurement &b)
         {
-            double best_distance =
-                std::numeric_limits<double>::max();
+            double best_distance = std::numeric_limits<double>::max();
 
-            std::array<int, 4> best_mapping =
-                {
-                    -1,
-                    -1,
-                    -1,
-                    -1};
+            std::array<int, 4> best_mapping = {-1, -1, -1, -1};
 
             /*
              * 找到两个无标签点集之间
              * 距离最小的循环对应。
              */
-            for (int start = 0;
-                 start < 4;
-                 ++start)
+            for (int start = 0; start < 4; ++start)
             {
-                for (bool reverse :
-                     {false, true})
+                for (bool reverse : {false, true})
                 {
                     double distance = 0.0;
 
                     std::array<int, 4> mapping;
 
-                    for (int i = 0;
-                         i < 4;
-                         ++i)
+                    for (int i = 0; i < 4; ++i)
                     {
                         int index;
 
                         if (!reverse)
                         {
-                            index =
-                                (start + i) % 4;
+                            index = (start + i) % 4;
                         }
                         else
                         {
-                            index =
-                                (start - i + 8) % 4;
+                            index = (start - i + 8) % 4;
                         }
 
-                        mapping[i] =
-                            index;
+                        mapping[i] = index;
 
-                        const double dx =
-                            a.physical_corners_[i].x -
-                            b.physical_corners_[index].x;
+                        const double dx = a.physical_corners_[i].x - b.physical_corners_[index].x;
 
-                        const double dy =
-                            a.physical_corners_[i].y -
-                            b.physical_corners_[index].y;
+                        const double dy = a.physical_corners_[i].y - b.physical_corners_[index].y;
 
-                        distance +=
-                            dx * dx +
-                            dy * dy;
+                        distance += dx * dx + dy * dy;
                     }
 
                     if (distance < best_distance)
                     {
-                        best_distance =
-                            distance;
+                        best_distance = distance;
 
-                        best_mapping =
-                            mapping;
+                        best_mapping = mapping;
                     }
                 }
             }
@@ -304,9 +247,7 @@ namespace mark
              * 如果 P0~P3 对应关系保持，
              * 方向解释一致。
              */
-            for (int i = 0;
-                 i < 4;
-                 ++i)
+            for (int i = 0; i < 4; ++i)
             {
                 if (best_mapping[i] != i)
                 {
@@ -334,27 +275,22 @@ namespace mark
          *
          * 最小的已有 measurement。
          */
-        CornerMeasurement select_best_measurement(
-            const std::vector<CornerMeasurement> &measurements)
+        CornerMeasurement
+        select_best_measurement(const std::vector<CornerMeasurement> &measurements)
         {
             size_t best_index = 0;
 
-            double best_error =
-                measurement_residual(
-                    measurements[0]);
+            double best_error = measurement_residual(measurements[0]);
 
-            for (size_t i = 1;
-                 i < measurements.size();
-                 ++i)
+            for (size_t i = 1; i < measurements.size(); ++i)
             {
-                const double current_error =
-                    measurement_residual(
-                        measurements[i]);
+                const double current_error = measurement_residual(measurements[i]);
 
                 // 两线残差和相等时，按帧/组件/弧稳定编号组成的四角键选择。
                 // 不平均角点，也不把“测量择优”当作方向胜出。
                 std::array<std::string, 4> current_ids, best_ids;
-                for (size_t corner = 0; corner < 4; ++corner) {
+                for (size_t corner = 0; corner < 4; ++corner)
+                {
                     current_ids[corner] = measurements[i].evidence_[corner].stable_id_;
                     best_ids[corner] = measurements[best_index].evidence_[corner].stable_id_;
                 }
@@ -363,8 +299,7 @@ namespace mark
                 {
                     best_index = i;
 
-                    best_error =
-                        current_error;
+                    best_error = current_error;
                 }
             }
 
@@ -395,18 +330,14 @@ namespace mark
      * - 边拟合；
      * - 屏幕排序。
      */
-    SemanticResolution resolveSemantics(
-        const std::vector<CornerMeasurement> &measurements,
-        bool search_truncated,
-        const CornerConfig &config)
+    SemanticResolution resolveSemantics(const std::vector<CornerMeasurement> &measurements,
+                                        bool search_truncated, const CornerConfig &config)
     {
         SemanticResolution result;
 
-        result.geometry_consistent_ =
-            false;
+        result.geometry_consistent_ = false;
 
-        result.orientation_unique_ =
-            false;
+        result.orientation_unique_ = false;
 
         result.retained_measurements_.clear();
 
@@ -418,24 +349,28 @@ namespace mark
          */
         if (measurements.empty())
         {
-            result.rejection_reason_ =
-                "没有可归并的几何测量";
+            result.rejection_reason_ = "没有可归并的几何测量";
 
             return result;
         }
 
         // 非有限配置是调用错误，不能吞成“没有目标”。测量非法则明确拒绝。
-        if (!std::isfinite(config.semantic_geometry_threshold_) || config.semantic_geometry_threshold_ < 0)
+        if (!std::isfinite(config.semantic_geometry_threshold_) ||
+            config.semantic_geometry_threshold_ < 0)
             throw std::invalid_argument("SEMANTIC_CONFIG: invalid geometry threshold");
-        for (const auto& measurement : measurements) {
+        for (const auto &measurement : measurements)
+        {
             auto order = orderScreenCorners(measurement.physical_corners_, config);
             if (order.status_ != ScreenOrderStatus::SUCCESS ||
-                !std::isfinite(measurement_residual(measurement))) {
+                !std::isfinite(measurement_residual(measurement)))
+            {
                 result.rejection_reason_ = "INVALID_MEASUREMENT: 非有限或非法四角/残差";
                 return result;
             }
-            for (const auto& evidence : measurement.evidence_) {
-                if (!std::isfinite(evidence.error_) || evidence.error_ < 0) {
+            for (const auto &evidence : measurement.evidence_)
+            {
+                if (!std::isfinite(evidence.error_) || evidence.error_ < 0)
+                {
                     result.rejection_reason_ = "INVALID_MEASUREMENT: 非法观测残差";
                     return result;
                 }
@@ -449,29 +384,21 @@ namespace mark
          * 任意两个假设必须能够解释为
          * 同一个无标签四点集合。
          */
-        for (size_t i = 0;
-             i < measurements.size();
-             ++i)
+        for (size_t i = 0; i < measurements.size(); ++i)
         {
-            for (size_t j = i + 1;
-                 j < measurements.size();
-                 ++j)
+            for (size_t j = i + 1; j < measurements.size(); ++j)
             {
-                if (!geometry_equal(
-                        measurements[i],
-                        measurements[j],
-                        config.semantic_geometry_threshold_))
+                if (!geometry_equal(measurements[i], measurements[j],
+                                    config.semantic_geometry_threshold_))
                 {
-                    result.rejection_reason_ =
-                        "存在几何冲突";
+                    result.rejection_reason_ = "存在几何冲突";
 
                     return result;
                 }
             }
         }
 
-        result.geometry_consistent_ =
-            true;
+        result.geometry_consistent_ = true;
 
         /*
          * Step 2:
@@ -483,10 +410,7 @@ namespace mark
          * 使用已有 evidence.error_
          * 选择残差最小者。
          */
-        result.retained_measurements_
-            .push_back(
-                select_best_measurement(
-                    measurements));
+        result.retained_measurements_.push_back(select_best_measurement(measurements));
 
         /*
          * Step 3:
@@ -498,13 +422,9 @@ namespace mark
          */
         bool orientation_unique = true;
 
-        for (size_t i = 1;
-             i < measurements.size();
-             ++i)
+        for (size_t i = 1; i < measurements.size(); ++i)
         {
-            if (!orientation_equal(
-                    measurements[0],
-                    measurements[i]))
+            if (!orientation_equal(measurements[0], measurements[i]))
             {
                 orientation_unique = false;
 
@@ -512,8 +432,7 @@ namespace mark
             }
         }
 
-        result.orientation_unique_ =
-            orientation_unique;
+        result.orientation_unique_ = orientation_unique;
 
         /*
          * Step 4:
@@ -524,8 +443,7 @@ namespace mark
          */
         if (search_truncated)
         {
-            result.orientation_unique_ =
-                false;
+            result.orientation_unique_ = false;
         }
 
         return result;

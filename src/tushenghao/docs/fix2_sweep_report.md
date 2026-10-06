@@ -276,3 +276,8 @@ corner_edge_fit.cpp 第 29 行同时要求连续支持弧跨度至少 14 px、�
 本轮四条调查线已闭合：历史预算重算、公式/取样核对、真实与合成分布对照、固定成像反事实。新增法向像素剖面归入成像对照，用于验证模型差异。停止继续搜索“哪个参数足以让 112 通过”，也不再无界细分硬件原因。已证实、未证实和下一阶段需要独立数据验证的内容在上文分开记录。
 
 原报告内容原样保留于本节之前，并以 [previous_report.md](evidence/final-fixes/fix2-sweep/principles/previous_report.md) 存档；旧敏感性实验仍可复核，但不能被当成当前实施授权。工具说明、复核脚本、原始记录与哈希清单见 [研究证据说明](evidence/final-fixes/fix2-sweep/principles/README.md)；[最终检查](evidence/final-fixes/fix2-sweep/principles/final_check.json) 记录保护文件和原报告前缀检查。正式代码与预算未修改，本轮没有运行新的正式视频验收，也没有宣称已修复该 bug。
+
+
+## Fix2-sweep 后续小修进展（2026-10-07）
+
+本轮 F01/F01-C 唯一支持像素计数及 F02 真实几何验证残差已实施，README 历史迁移与独立排版完成。Release/Debug 各 25/25；终版 1676 帧算法载荷零回归。未改预算、拟合权重或旧调查结论，不宣称解决闪烁。本轮归档与三个自建 build 清理已完成，结果以[独立验收](fix2_followup_acceptance.md)及[施工记录](fix2_followup_log.md)为准；本节之前的历史内容原样保留。

@@ -21,7 +21,14 @@
 #include <cmath>
 
 // 普通C++检查在Release仍有效；每用例失败由main独立记录，不引入测试框架。
-namespace { void check(bool ok, const char* message) { if (!ok) throw std::runtime_error(message); } }
+namespace
+{
+    void check(bool ok, const char *message)
+    {
+        if (!ok)
+            throw std::runtime_error(message);
+    }
+}
 
 #include <array>
 #include <cmath>
@@ -41,15 +48,21 @@ namespace mark
     {
 
         // 对每个旧样例同时查新几何环接口；保留原golden断言而非只比两个包装。
-        ScreenOrderResult orderAndCompare(const std::array<cv::Point2d,4>& input,const CornerConfig& config) {
-            auto old=orderScreenCorners(input,config);std::string reason;
-            auto cycle=orderScreenCycle(input,config,reason);
-            check(bool(cycle)==bool(old.screen_order_),"cycle/physical success differs");
-            check(reason==old.rejection_reason_,"cycle/physical reason differs");
-            if(cycle) {
-                check(cycle->screen_points==old.screen_order_->screen_points_,"cycle points differ");
-                check(cycle->input_to_screen==old.screen_order_->physical_to_screen_,"cycle slot map differs");
-                check(cycle->tie==old.screen_order_->screen_order_tie_,"cycle tie differs");
+        ScreenOrderResult orderAndCompare(const std::array<cv::Point2d, 4> &input,
+                                          const CornerConfig &config)
+        {
+            auto old = orderScreenCorners(input, config);
+            std::string reason;
+            auto cycle = orderScreenCycle(input, config, reason);
+            check(bool(cycle) == bool(old.screen_order_), "cycle/physical success differs");
+            check(reason == old.rejection_reason_, "cycle/physical reason differs");
+            if (cycle)
+            {
+                check(cycle->screen_points == old.screen_order_->screen_points_,
+                      "cycle points differ");
+                check(cycle->input_to_screen == old.screen_order_->physical_to_screen_,
+                      "cycle slot map differs");
+                check(cycle->tie == old.screen_order_->screen_order_tie_, "cycle tie differs");
             }
             return old;
         }
@@ -76,8 +89,7 @@ namespace mark
          * - SUCCESS 时必须存在 screen_order_
          * - 不能用默认空对象表示成功
          */
-        void expect_success(
-            const ScreenOrderResult &result)
+        void expect_success(const ScreenOrderResult &result)
         {
             check((result.status_) == (ScreenOrderStatus::SUCCESS), "EQ check at screen_order:67");
 
@@ -89,8 +101,7 @@ namespace mark
          *
          * 失败不能返回 P0,P1,P2,P3 默认顺序。
          */
-        void expect_failed(
-            const ScreenOrderResult &result)
+        void expect_failed(const ScreenOrderResult &result)
         {
             check((result.status_) == (ScreenOrderStatus::FAILED), "EQ check at screen_order:80");
 
@@ -102,15 +113,15 @@ namespace mark
         /**
          * @brief 检查屏幕点是否接近目标位置。
          */
-        void expect_point_near(
-            const cv::Point2d &actual,
-            const cv::Point2d &expected)
+        void expect_point_near(const cv::Point2d &actual, const cv::Point2d &expected)
         {
             constexpr double epsilon = 1e-6;
 
-            check(std::abs((actual.x) - (expected.x)) <= (epsilon), "NEAR check at screen_order:96");
+            check(std::abs((actual.x) - (expected.x)) <= (epsilon),
+                  "NEAR check at screen_order:96");
 
-            check(std::abs((actual.y) - (expected.y)) <= (epsilon), "NEAR check at screen_order:98");
+            check(std::abs((actual.y) - (expected.y)) <= (epsilon),
+                  "NEAR check at screen_order:98");
         }
 
         /**
@@ -123,24 +134,15 @@ namespace mark
          * 测试只检查：
          * orderScreenCorners 是否正确生成屏幕序。
          */
-        void expect_screen_rectangle(
-            const ScreenOrder &order)
+        void expect_screen_rectangle(const ScreenOrder &order)
         {
-            expect_point_near(
-                order.screen_points_[0],
-                {0, 0}); // LT
+            expect_point_near(order.screen_points_[0], {0, 0}); // LT
 
-            expect_point_near(
-                order.screen_points_[1],
-                {1, 0}); // RT
+            expect_point_near(order.screen_points_[1], {1, 0}); // RT
 
-            expect_point_near(
-                order.screen_points_[2],
-                {1, 1}); // RB
+            expect_point_near(order.screen_points_[2], {1, 1}); // RB
 
-            expect_point_near(
-                order.screen_points_[3],
-                {0, 1}); // LB
+            expect_point_near(order.screen_points_[3], {0, 1}); // LB
         }
 
     }
@@ -157,22 +159,14 @@ namespace mark
      */
     void StandardRectangle()
     {
-        std::array<cv::Point2d, 4> physical =
-            {
-                cv::Point2d{0, 0},
-                cv::Point2d{1, 0},
-                cv::Point2d{1, 1},
-                cv::Point2d{0, 1}};
+        std::array<cv::Point2d, 4> physical = {cv::Point2d{0, 0}, cv::Point2d{1, 0},
+                                               cv::Point2d{1, 1}, cv::Point2d{0, 1}};
 
-        auto result =
-            orderAndCompare(
-                physical,
-                make_test_config());
+        auto result = orderAndCompare(physical, make_test_config());
 
         expect_success(result);
 
-        const auto &order =
-            result.screen_order_.value();
+        const auto &order = result.screen_order_.value();
 
         expect_screen_rectangle(order);
 
@@ -195,24 +189,16 @@ namespace mark
      */
     void TiltedQuadrilateral()
     {
-        std::array<cv::Point2d, 4> physical =
-            {
-                cv::Point2d{10, 10},
-                cv::Point2d{30, 5},
-                cv::Point2d{35, 25},
-                cv::Point2d{5, 30}};
+        std::array<cv::Point2d, 4> physical = {cv::Point2d{10, 10}, cv::Point2d{30, 5},
+                                               cv::Point2d{35, 25}, cv::Point2d{5, 30}};
 
-        auto result =
-            orderAndCompare(
-                physical,
-                make_test_config());
+        auto result = orderAndCompare(physical, make_test_config());
 
         expect_success(result);
 
         check(!(result.screen_order_->screen_order_tie_), "FALSE check at screen_order:197");
 
-        for (int index :
-             result.screen_order_->physical_to_screen_)
+        for (int index : result.screen_order_->physical_to_screen_)
         {
             check((index) >= (0), "GE check at screen_order:202");
             check((index) < (4), "LT check at screen_order:203");
@@ -232,24 +218,16 @@ namespace mark
      */
     void DiamondNearTie()
     {
-        std::array<cv::Point2d, 4> physical =
-            {
-                cv::Point2d{0, -1},
-                cv::Point2d{1, 0},
-                cv::Point2d{0, 1},
-                cv::Point2d{-1, 0}};
+        std::array<cv::Point2d, 4> physical = {cv::Point2d{0, -1}, cv::Point2d{1, 0},
+                                               cv::Point2d{0, 1}, cv::Point2d{-1, 0}};
 
-        auto result =
-            orderAndCompare(
-                physical,
-                make_test_config());
+        auto result = orderAndCompare(physical, make_test_config());
 
         expect_success(result);
 
         check(bool(result.screen_order_->screen_order_tie_), "TRUE check at screen_order:234");
 
-        for (int index :
-             result.screen_order_->physical_to_screen_)
+        for (int index : result.screen_order_->physical_to_screen_)
         {
             check((index) >= (0), "GE check at screen_order:240");
             check((index) < (4), "LT check at screen_order:241");
@@ -267,37 +245,20 @@ namespace mark
      */
     void Rotation90_180_270()
     {
-        const std::array<
-            std::array<cv::Point2d, 4>,
-            3>
-            cases =
-                {{{cv::Point2d{0, 1},
-                   cv::Point2d{0, 0},
-                   cv::Point2d{1, 0},
-                   cv::Point2d{1, 1}},
+        const std::array<std::array<cv::Point2d, 4>, 3> cases = {
+            {{cv::Point2d{0, 1}, cv::Point2d{0, 0}, cv::Point2d{1, 0}, cv::Point2d{1, 1}},
 
-                  {cv::Point2d{1, 1},
-                   cv::Point2d{0, 1},
-                   cv::Point2d{0, 0},
-                   cv::Point2d{1, 0}},
+             {cv::Point2d{1, 1}, cv::Point2d{0, 1}, cv::Point2d{0, 0}, cv::Point2d{1, 0}},
 
-                  {cv::Point2d{1, 0},
-                   cv::Point2d{1, 1},
-                   cv::Point2d{0, 1},
-                   cv::Point2d{0, 0}}}};
+             {cv::Point2d{1, 0}, cv::Point2d{1, 1}, cv::Point2d{0, 1}, cv::Point2d{0, 0}}}};
 
-        for (const auto &physical :
-             cases)
+        for (const auto &physical : cases)
         {
-            auto result =
-                orderAndCompare(
-                    physical,
-                    make_test_config());
+            auto result = orderAndCompare(physical, make_test_config());
 
             expect_success(result);
 
-            for (int index :
-                 result.screen_order_->physical_to_screen_)
+            for (int index : result.screen_order_->physical_to_screen_)
             {
                 check((index) >= (0), "GE check at screen_order:288");
                 check((index) < (4), "LT check at screen_order:289");
@@ -316,22 +277,14 @@ namespace mark
      */
     void TranslationAndScale()
     {
-        std::array<cv::Point2d, 4> physical =
-            {
-                cv::Point2d{100, 200},
-                cv::Point2d{300, 200},
-                cv::Point2d{300, 400},
-                cv::Point2d{100, 400}};
+        std::array<cv::Point2d, 4> physical = {cv::Point2d{100, 200}, cv::Point2d{300, 200},
+                                               cv::Point2d{300, 400}, cv::Point2d{100, 400}};
 
-        auto result =
-            orderAndCompare(
-                physical,
-                make_test_config());
+        auto result = orderAndCompare(physical, make_test_config());
 
         expect_success(result);
 
-        for (int index :
-             result.screen_order_->physical_to_screen_)
+        for (int index : result.screen_order_->physical_to_screen_)
         {
             check((index) >= (0), "GE check at screen_order:322");
             check((index) < (4), "LT check at screen_order:323");
@@ -346,17 +299,10 @@ namespace mark
      */
     void CollinearFails()
     {
-        std::array<cv::Point2d, 4> physical =
-            {
-                cv::Point2d{0, 0},
-                cv::Point2d{1, 0},
-                cv::Point2d{2, 0},
-                cv::Point2d{3, 0}};
+        std::array<cv::Point2d, 4> physical = {cv::Point2d{0, 0}, cv::Point2d{1, 0},
+                                               cv::Point2d{2, 0}, cv::Point2d{3, 0}};
 
-        auto result =
-            orderAndCompare(
-                physical,
-                make_test_config());
+        auto result = orderAndCompare(physical, make_test_config());
 
         expect_failed(result);
     }
@@ -368,35 +314,41 @@ namespace mark
      */
     void DuplicatePointFails()
     {
-        std::array<cv::Point2d, 4> physical =
-            {
-                cv::Point2d{0, 0},
-                cv::Point2d{1, 0},
-                cv::Point2d{1, 1},
-                cv::Point2d{1, 1}};
+        std::array<cv::Point2d, 4> physical = {cv::Point2d{0, 0}, cv::Point2d{1, 0},
+                                               cv::Point2d{1, 1}, cv::Point2d{1, 1}};
 
-        auto result =
-            orderAndCompare(
-                physical,
-                make_test_config());
+        auto result = orderAndCompare(physical, make_test_config());
 
         expect_failed(result);
     }
 
 } // namespace mark
+
 // 每个历史用例仍独立执行，失败不会跳过其它用例。
-int main() {
- int failures=0;
- const std::pair<const char*, void(*)()> cases[] = {
-  {"StandardRectangle",mark::StandardRectangle},
-  {"TiltedQuadrilateral",mark::TiltedQuadrilateral},
-  {"DiamondNearTie",mark::DiamondNearTie},
-  {"Rotation90_180_270",mark::Rotation90_180_270},
-  {"TranslationAndScale",mark::TranslationAndScale},
-  {"CollinearFails",mark::CollinearFails},
-  {"DuplicatePointFails",mark::DuplicatePointFails},
- };
- for (auto item:cases) { try { item.second(); std::cout<<"PASS "<<item.first<<"\n"; }
- catch(const std::exception& e) { ++failures; std::cerr<<"FAIL "<<item.first<<": "<<e.what()<<"\n"; } }
- return failures ? 1 : 0;
+int main()
+{
+    int failures = 0;
+    const std::pair<const char *, void (*)()> cases[] = {
+        {"StandardRectangle", mark::StandardRectangle},
+        {"TiltedQuadrilateral", mark::TiltedQuadrilateral},
+        {"DiamondNearTie", mark::DiamondNearTie},
+        {"Rotation90_180_270", mark::Rotation90_180_270},
+        {"TranslationAndScale", mark::TranslationAndScale},
+        {"CollinearFails", mark::CollinearFails},
+        {"DuplicatePointFails", mark::DuplicatePointFails},
+    };
+    for (auto item : cases)
+    {
+        try
+        {
+            item.second();
+            std::cout << "PASS " << item.first << "\n";
+        }
+        catch (const std::exception &e)
+        {
+            ++failures;
+            std::cerr << "FAIL " << item.first << ": " << e.what() << "\n";
+        }
+    }
+    return failures ? 1 : 0;
 }

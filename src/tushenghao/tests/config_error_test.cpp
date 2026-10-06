@@ -21,16 +21,13 @@
 namespace
 {
 
-    void writeTestConfig(
-        const std::filesystem::path &path,
-        const std::string &content)
+    void writeTestConfig(const std::filesystem::path &path, const std::string &content)
     {
         std::ofstream file(path);
 
         if (!file)
         {
-            throw std::runtime_error(
-                "cannot create test config file");
+            throw std::runtime_error("cannot create test config file");
         }
 
         file << "%YAML:1.0\n"; // OpenCV FileStorage 需要这个头 定位问题修改1 YAML 头问题修好
@@ -75,8 +72,7 @@ OpenCV 的 FileStorage 不是通用 YAML 解析器，它要求文件以 %YAML:1.
     {
         try
         {
-            mark::loadConfig(
-                "not_exist_config.yaml");
+            mark::loadConfig("not_exist_config.yaml");
         }
         catch (const mark::ConfigError &e)
         {
@@ -92,12 +88,10 @@ OpenCV 的 FileStorage 不是通用 YAML 解析器，它要求文件以 %YAML:1.
     // 测试 detector.mode 类型错误时是否抛出 ConfigError。
     bool testModeTypeError()
     {
-        const auto path =
-            std::filesystem::temp_directory_path() / "mode_type_error.yaml";
+        const auto path = std::filesystem::temp_directory_path() / "mode_type_error.yaml";
 
-        writeTestConfig(
-            path,
-            R"(
+        writeTestConfig(path,
+                        R"(
 schema_version: 1
 input:
   pixel_format: BGR8
@@ -151,12 +145,10 @@ debug:
     // 测试 detector.mode 非法值时是否抛出 ConfigError。
     bool testModeValueError()
     {
-        const auto path =
-            std::filesystem::temp_directory_path() / "mode_value_error.yaml";
+        const auto path = std::filesystem::temp_directory_path() / "mode_value_error.yaml";
 
-        writeTestConfig(
-            path,
-            R"(
+        writeTestConfig(path,
+                        R"(
 schema_version: 1
 input:
   pixel_format: BGR8
@@ -199,12 +191,10 @@ debug:
     // 测试 preprocess.threshold 超出范围时是否抛出 ConfigError。
     bool testThresholdRangeError()
     {
-        const auto path =
-            std::filesystem::temp_directory_path() / "threshold_error.yaml";
+        const auto path = std::filesystem::temp_directory_path() / "threshold_error.yaml";
 
-        writeTestConfig(
-            path,
-            R"(
+        writeTestConfig(path,
+                        R"(
 schema_version: 1
 input:
   pixel_format: BGR8
@@ -247,12 +237,10 @@ debug:
     // 计时已经实现，旧负例改测仍未实现的视频导出，不删除未实现功能拒绝覆盖。
     bool testUnsupportedFeatureError()
     {
-        const auto path =
-            std::filesystem::temp_directory_path() / "unsupported_feature.yaml";
+        const auto path = std::filesystem::temp_directory_path() / "unsupported_feature.yaml";
 
-        writeTestConfig(
-            path,
-            R"(
+        writeTestConfig(path,
+                        R"(
 schema_version: 1
 input:
   pixel_format: BGR8
@@ -293,49 +281,180 @@ debug:
         return false;
     }
 
-// 新增时序字段同时测试直接配置与YAML类型/缺失/重复/溢出，防止Release空绿。
-    bool temporalErrors() {
-        auto base=mark::loadConfig(std::filesystem::path(__FILE__).parent_path().parent_path()/"config/detector.yaml");
+    // 新增时序字段同时测试直接配置与YAML类型/缺失/重复/溢出，防止Release空绿。
+    bool temporalErrors()
+    {
+        auto base = mark::loadConfig(std::filesystem::path(__FILE__).parent_path().parent_path() /
+                                     "config/detector.yaml");
         // 缺预算兼容测试是独立fixture，生产获批数值不能使负例失去覆盖。
         base.detector_config.temporal.correspondence_uncertainty_px.reset();
         base.detector_config.temporal.max_smoothing_deviation_px.reset();
-        double mark::TemporalConfig::* fields[]={&mark::TemporalConfig::reference_dt_ms,&mark::TemporalConfig::reference_alpha,
-            &mark::TemporalConfig::history_max_gap_ms,&mark::TemporalConfig::max_center_distance_diagonal_ratio,
-            &mark::TemporalConfig::min_area_ratio,&mark::TemporalConfig::max_area_ratio};
-        for(auto field:fields)for(double v:{0.,-1.,std::numeric_limits<double>::quiet_NaN(),std::numeric_limits<double>::infinity()}) {
-            auto app=base;app.detector_config.temporal.*field=v;
-            bool bad=false;try{mark::validateConfig(app);}catch(const mark::ConfigError&){bad=true;}if(!bad){std::cerr<<"temporal rejection missing at line "<<__LINE__<<"\n";return false;}
+        double mark::TemporalConfig::*fields[] = {
+            &mark::TemporalConfig::reference_dt_ms,
+            &mark::TemporalConfig::reference_alpha,
+            &mark::TemporalConfig::history_max_gap_ms,
+            &mark::TemporalConfig::max_center_distance_diagonal_ratio,
+            &mark::TemporalConfig::min_area_ratio,
+            &mark::TemporalConfig::max_area_ratio};
+        for (auto field : fields)
+            for (double v : {0., -1., std::numeric_limits<double>::quiet_NaN(),
+                             std::numeric_limits<double>::infinity()})
+            {
+                auto app = base;
+                app.detector_config.temporal.*field = v;
+                bool bad = false;
+                try
+                {
+                    mark::validateConfig(app);
+                }
+                catch (const mark::ConfigError &)
+                {
+                    bad = true;
+                }
+                if (!bad)
+                {
+                    std::cerr << "temporal rejection missing at line " << __LINE__ << "\n";
+                    return false;
+                }
+            }
+        for (int variant = 0; variant < 8; ++variant)
+        {
+            auto app = base;
+            auto &t = app.detector_config.temporal;
+            if (variant == 0)
+                t.reference_alpha = 1;
+            if (variant == 1)
+                t.min_area_ratio = 1.1;
+            if (variant == 2)
+                t.max_area_ratio = .9;
+            if (variant == 3)
+                t.correspondence_uncertainty_px = -1;
+            if (variant == 4)
+                t.correspondence_uncertainty_px = std::numeric_limits<double>::quiet_NaN();
+            if (variant == 5)
+                t.max_smoothing_deviation_px = 0;
+            if (variant == 6)
+                t.max_smoothing_deviation_px = std::numeric_limits<double>::infinity();
+            if (variant == 7)
+                t.max_hold_frames = -1;
+            bool bad = false;
+            try
+            {
+                mark::validateConfig(app);
+            }
+            catch (const mark::ConfigError &)
+            {
+                bad = true;
+            }
+            if (!bad)
+            {
+                std::cerr << "temporal rejection missing at line " << __LINE__ << "\n";
+                return false;
+            }
         }
-        for(int variant=0;variant<8;++variant) {
-            auto app=base;auto& t=app.detector_config.temporal;
-            if(variant==0)t.reference_alpha=1;if(variant==1)t.min_area_ratio=1.1;if(variant==2)t.max_area_ratio=.9;
-            if(variant==3)t.correspondence_uncertainty_px=-1;if(variant==4)t.correspondence_uncertainty_px=std::numeric_limits<double>::quiet_NaN();
-            if(variant==5)t.max_smoothing_deviation_px=0;if(variant==6)t.max_smoothing_deviation_px=std::numeric_limits<double>::infinity();
-            if(variant==7)t.max_hold_frames=-1;
-            bool bad=false;try{mark::validateConfig(app);}catch(const mark::ConfigError&){bad=true;}if(!bad){std::cerr<<"temporal rejection missing at line "<<__LINE__<<"\n";return false;}
+        auto path = std::filesystem::temp_directory_path() / "block4-temporal-errors.yaml";
+        mark::writeEffectiveConfig(base, path);
+        std::ifstream input(path);
+        std::string text((std::istreambuf_iterator<char>(input)), {});
+        input.close();
+        for (const std::string replacement :
+             {"reference_dt_ms: \"bad\"", "reference_dt_ms: .Nan",
+              "reference_dt_ms: 14.\n   reference_dt_ms: 14.",
+              "correspondence_uncertainty_px: \"\"", "max_smoothing_deviation_px: -1",
+              "misspelled_budget: 2"})
+        {
+            auto copy = text;
+            auto start = copy.find("reference_dt_ms:");
+            auto end = copy.find('\n', start);
+            copy.replace(start, end - start, replacement);
+            {
+                std::ofstream out(path);
+                out << copy;
+            }
+            bool bad = false;
+            try
+            {
+                mark::loadConfig(path);
+            }
+            catch (const std::exception &)
+            {
+                bad = true;
+            }
+            if (!bad)
+            {
+                std::cerr << "temporal rejection missing at line " << __LINE__ << "\n";
+                return false;
+            }
         }
-        auto path=std::filesystem::temp_directory_path()/"block4-temporal-errors.yaml";
-        mark::writeEffectiveConfig(base,path);std::ifstream input(path);std::string text((std::istreambuf_iterator<char>(input)),{});input.close();
-        for(const std::string replacement:{"reference_dt_ms: \"bad\"","reference_dt_ms: .Nan","reference_dt_ms: 14.\n   reference_dt_ms: 14.",
-               "correspondence_uncertainty_px: \"\"","max_smoothing_deviation_px: -1","misspelled_budget: 2"}) {
-            auto copy=text;auto start=copy.find("reference_dt_ms:");auto end=copy.find('\n',start);copy.replace(start,end-start,replacement);
-            {std::ofstream out(path);out<<copy;}bool bad=false;try{mark::loadConfig(path);}catch(const std::exception&){bad=true;}if(!bad){std::cerr<<"temporal rejection missing at line "<<__LINE__<<"\n";return false;}
-        }
-        for(const std::string value:{"5.5","2147483648","4294967296"}) {
-            auto copy=text;auto start=copy.find("max_hold_frames:");auto end=copy.find('\n',start);copy.replace(start,end-start,"max_hold_frames: "+value);
-            {std::ofstream out(path);out<<copy;}bool bad=false;try{mark::loadConfig(path);}catch(const std::exception&){bad=true;}if(!bad){std::cerr<<"temporal rejection missing at line "<<__LINE__<<"\n";return false;}
+        for (const std::string value : {"5.5", "2147483648", "4294967296"})
+        {
+            auto copy = text;
+            auto start = copy.find("max_hold_frames:");
+            auto end = copy.find('\n', start);
+            copy.replace(start, end - start, "max_hold_frames: " + value);
+            {
+                std::ofstream out(path);
+                out << copy;
+            }
+            bool bad = false;
+            try
+            {
+                mark::loadConfig(path);
+            }
+            catch (const std::exception &)
+            {
+                bad = true;
+            }
+            if (!bad)
+            {
+                std::cerr << "temporal rejection missing at line " << __LINE__ << "\n";
+                return false;
+            }
         }
         // 旧schema=1省略六个冻结字段仍加载，G-B不得被补默认；旧三键仍必填。
-        for(const std::string field:{"reference_dt_ms","reference_alpha","history_max_gap_ms","max_center_distance_diagonal_ratio","min_area_ratio","max_area_ratio"}) {
-            auto start=text.find("   "+field+":",text.find("temporal:"));if(start!=std::string::npos)text.erase(start,text.find('\n',start)-start+1);
+        for (const std::string field :
+             {"reference_dt_ms", "reference_alpha", "history_max_gap_ms",
+              "max_center_distance_diagonal_ratio", "min_area_ratio", "max_area_ratio"})
+        {
+            auto start = text.find("   " + field + ":", text.find("temporal:"));
+            if (start != std::string::npos)
+                text.erase(start, text.find('\n', start) - start + 1);
         }
-        {std::ofstream out(path);out<<text;}auto loaded=mark::loadConfig(path).detector_config.temporal;
-        if(loaded.reference_dt_ms!=14||loaded.reference_alpha!=.7||loaded.correspondence_uncertainty_px||loaded.max_smoothing_deviation_px)return false;
-        for(const std::string field:{"stabilization_enabled","display_hold_enabled","max_hold_frames"}) {
-            auto copy=text;auto start=copy.find("   "+field+":");copy.erase(start,copy.find('\n',start)-start+1);
-            {std::ofstream out(path);out<<copy;}bool bad=false;try{mark::loadConfig(path);}catch(const std::exception&){bad=true;}if(!bad){std::cerr<<"temporal rejection missing at line "<<__LINE__<<"\n";return false;}
+        {
+            std::ofstream out(path);
+            out << text;
         }
-        std::filesystem::remove(path);return true;
+        auto loaded = mark::loadConfig(path).detector_config.temporal;
+        if (loaded.reference_dt_ms != 14 || loaded.reference_alpha != .7 ||
+            loaded.correspondence_uncertainty_px || loaded.max_smoothing_deviation_px)
+            return false;
+        for (const std::string field :
+             {"stabilization_enabled", "display_hold_enabled", "max_hold_frames"})
+        {
+            auto copy = text;
+            auto start = copy.find("   " + field + ":");
+            copy.erase(start, copy.find('\n', start) - start + 1);
+            {
+                std::ofstream out(path);
+                out << copy;
+            }
+            bool bad = false;
+            try
+            {
+                mark::loadConfig(path);
+            }
+            catch (const std::exception &)
+            {
+                bad = true;
+            }
+            if (!bad)
+            {
+                std::cerr << "temporal rejection missing at line " << __LINE__ << "\n";
+                return false;
+            }
+        }
+        std::filesystem::remove(path);
+        return true;
     }
 
 } // namespace
@@ -347,8 +466,13 @@ int main()
 {
     try
     {
-        if(!temporalErrors()) {std::cerr<<"temporal errors failed\n";return 1;}
-        std::cout << "run testMissingFile" << std::endl;         // 排查哪个 case 失败(工程经验) 定位问题修改1
+        if (!temporalErrors())
+        {
+            std::cerr << "temporal errors failed\n";
+            return 1;
+        }
+        std::cout << "run testMissingFile"
+                  << std::endl; // 排查哪个 case 失败(工程经验) 定位问题修改1
         if (!testMissingFile())
         {
             return 1;
