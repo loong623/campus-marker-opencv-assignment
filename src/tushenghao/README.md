@@ -220,3 +220,18 @@ ffprobe 是可选核验工具；没有显示服务也可运行三模式。新路
 
 输入路径不存在或 CLI/配置在创建 run 前被拒绝时，只保留退出码与 stderr，不保证有 run 目录；
 文件存在但解码器无法打开、以及已打开却零帧时，FAILED 生命周期已实跑验证，不生成成功 summary。
+
+## Path A 锚点竞争修复（2026-10-06）
+
+三L只用独立合法拓扑的实测凹角，完整保留合法多锚点及来源，合法失败竞争仍empty。原23项加2项，Release/Debug均25/25；manual_validation_check经用户批准修正fixture并保留目的。
+Release全1676帧及专项核查通过：864→976成功，118旧PathA恢复112，零旧成功退化、零A外状态变化；20旧成功raw四角改变需review，方向零变化。Debug完整1676及逐帧公共比较均PASS，同新指纹0d2d2e63aef753bc，最终状态见[专项验收](docs/path_a_acceptance.md)和[施工日志](docs/path_a_fix_log.md)。PathB／564无假设延期fix2，不声称P0整体解决。
+
+```bash
+cmake -S src/tushenghao -B build/final-fixes-path-a-release -DCMAKE_BUILD_TYPE=Release
+cmake --build build/final-fixes-path-a-release -j4
+ctest --test-dir build/final-fixes-path-a-release --output-on-failure
+build/final-fixes-path-a-release/path_a_verify --baseline-run src/tushenghao/docs/evidence/final-fixes/path-a/baseline --candidate-run src/tushenghao/docs/evidence/final-fixes/path-a/verification-release --config src/tushenghao/config/detector_verification.yaml --expected-frames 1676 --report-dir new-runs/path-a-review
+build/final-fixes-path-a-release/path_a_verify render --candidate-run src/tushenghao/docs/evidence/final-fixes/path-a/verification-release --video data/raw/marker_video.avi --review-list src/tushenghao/docs/evidence/final-fixes/path-a/report-release/review_required.csv --output-dir new-runs/path-a-images
+```
+
+报告/证据图目录必须是新路径。Debug用对应debug构建目录与`CMAKE_BUILD_TYPE=Debug`；逐字段raw差异、tracks/display历史差异分开报告，投影残差不是真值误差。132帧证据[review索引](docs/evidence/final-fixes/path-a/step6/review-approved.csv)已获用户全部通过确认，旧运行金样未覆盖。

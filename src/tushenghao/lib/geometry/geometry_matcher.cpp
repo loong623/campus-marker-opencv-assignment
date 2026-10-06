@@ -1,4 +1,7 @@
 #include "geometry/geometry_matcher.hpp"
+#include "geometry/geometry_anchor_evidence.hpp"
+#include <iomanip>
+#include <locale>
 #include "core/observed_geometry_utils.hpp"
 #include <functional>
 #include <map>
@@ -80,18 +83,6 @@ namespace mark
             for(size_t i=0;i<observations.size();++i)if(sourceId(observations[i],i)==id) {
                 if(found)throw std::invalid_argument("DUPLICATE_OBSERVATION_SOURCE_ID");found=&observations[i];
             }return found;
-        }
-        // 每个拓扑保留全部实测凹点；相同像素锚点去重不删除不同观察解。
-        std::vector<cv::Point2f> measuredAnchors(const ShapeObservation& observation) {
-            std::vector<cv::Point2f> result;
-            auto append=[&](cv::Point2f p){if(observed::finite(p)&&std::find(result.begin(),result.end(),p)==result.end())result.push_back(p);};
-            for(const auto& candidate:observation.l_topology_candidates_)
-                for(auto i:candidate.concave_vertex_indices_)if(i<candidate.polygon_.size())append(candidate.polygon_[i]);
-            // 已通过显式L类别剪枝的原简化轮廓凹点也不能遗漏；噪声锚点由原父验证拒绝。
-            // 新拓扑子序列不能替代原连续轮廓已有的实测分支（视频1573反例）。
-            for(auto turn:observation.turns_)if(turn.type_==TurnType::CONCAVE&&turn.vertex_index_<observation.simplified_polygon_.size())append(observation.simplified_polygon_[turn.vertex_index_]);
-            if(result.empty()&&observation.anchor_vertex_index_&&*observation.anchor_vertex_index_<observation.simplified_polygon_.size())append(observation.simplified_polygon_[*observation.anchor_vertex_index_]);
-            return result;
         }
         // 三个模型凹点对三个实测凹点拟合，原三L仿射设计/模型坐标不变。
         cv::Mat fitAnchorTuple(const std::vector<ComponentAssignment>& assignment,const std::array<cv::Point2f,3>& anchors,const MarkerGeometry& model) {
@@ -418,15 +409,17 @@ namespace mark
         // 达到K且确有下一元组才截断，恰好穷尽K不误报。保持竞争分支，不排名挑父。
         size_t expansions=0,invalid_affines=0;bool exhausted=false;
         for(const auto& combination:combinations) {
-            std::array<std::vector<cv::Point2f>,3> anchors;
+            std::array<LAnchorCollection,3> anchors;
             bool complete=combination.size()==3;
             if(!complete)continue;
             for(size_t i=0;i<3;++i) {
                 auto* o=findObservation(observations,combination[i].component_id_);
-                if(!o){complete=false;break;}anchors[i]=measuredAnchors(*o);
-                if(anchors[i].empty()){complete=false;break;}
+                if(!o){complete=false;break;}anchors[i]=collect_observed_l_anchors(*o,combination[i].component_id_);
+                if(anchors[i].anchors_.empty()){complete=false;break;}
             }
             if(!complete)continue;
+            // L 类别只剪枝；每个用于拟合的点必须拥有自身的合法拓扑来源。
+            std::array<const ObservedLAnchor*,3> selected{};
             std::array<cv::Point2f,3> tuple;
             std::function<void(size_t)> visit=[&](size_t depth) {
                 if(depth==3) {
@@ -436,9 +429,21 @@ namespace mark
                     auto h=buildGeometryHypothesis(combination,affine,observations,model_geometry);
                     std::ostringstream proof;proof<<"observed concave anchors:";
                     for(auto p:tuple)proof<<p.x<<','<<p.y<<';';h.evidence_.push_back(proof.str());
+                    // 来源按组合顺序保留；float round-trip 让统一日志能精确复算原拟合。
+                    for(size_t i=0;i<3;++i) {
+                        const auto& a=*selected[i];std::ostringstream source;
+                        source.imbue(std::locale::classic());source<<std::setprecision(std::numeric_limits<float>::max_digits10);
+                        source<<"anchor_topology/v1 part="<<combination[i].model_part_id_<<" component="<<a.source_component_id_
+                              <<" x="<<a.point_.x<<" y="<<a.point_.y<<" supports=";
+                        for(size_t j=0;j<a.topology_supports_.size();++j) {
+                            if(j)source<<',';const auto& support=a.topology_supports_[j];
+                            source<<support.topology_candidate_index_<<':'<<support.concave_vertex_index_;
+                        }
+                        h.evidence_.push_back(source.str());
+                    }
                     batch.hypotheses_.push_back(std::move(h));return;
                 }
-                for(auto p:anchors[depth]){tuple[depth]=p;visit(depth+1);if(exhausted)return;}
+                for(const auto& a:anchors[depth].anchors_){selected[depth]=&a;tuple[depth]=a.point_;visit(depth+1);if(exhausted)return;}
             };
             visit(0);if(exhausted)break;
         }

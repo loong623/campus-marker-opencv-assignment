@@ -28,3 +28,5 @@
 
 当前 Final-fixes 自动验证已完成；有屏显示和人工播放器待确认，干净 Linux 按用户决定记未验证。
 历史 Block5 失败 fixture 与未实现视频导出不代表当前状态；原记录保持。
+
+Path A 推荐顺序：[专项验收](path_a_acceptance.md) → [施工日志](path_a_fix_log.md) → [永久证据](evidence/final-fixes/path-a/) → [132帧review索引](evidence/final-fixes/path-a/frames/review_index.csv)。两种构建25/25，Release/Debug完整1676与专项机器核查均PASS，逐帧公共结果零差异，用户132/132 review已通过；原受阻记录与批准后的进展均保留。

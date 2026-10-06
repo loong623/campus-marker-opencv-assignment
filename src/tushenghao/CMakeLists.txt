@@ -17,6 +17,7 @@ add_library(mark_detector
     lib/geometry/geometry_matcher.cpp
     lib/geometry/geometry_observation.cpp
     lib/geometry/geometry_l_topology.cpp
+    lib/geometry/geometry_anchor_evidence.cpp
     lib/geometry/geometry_validation.cpp
     lib/geometry/geometry_assignment_completion.cpp
     lib/corners/corner_resolver.cpp
@@ -80,6 +81,8 @@ set(MARK_TEST_NAMES
     semantic_resolver_test
     detection_validator_test
     geometry_l_topology_test
+    geometry_anchor_evidence_test
+    path_a_competition_test
 )
 foreach(MARK_TEST_NAME IN LISTS MARK_TEST_NAMES)
     add_executable(${MARK_TEST_NAME} "tests/${MARK_TEST_NAME}.cpp")
@@ -156,3 +159,6 @@ endforeach()
 add_executable(final_fixes_verify tools/validation/final_fixes_verify.cpp)
 target_include_directories(final_fixes_verify PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tools")
 target_link_libraries(final_fixes_verify PRIVATE mark_frame_record_reader mark_detector_internal_headers)
+add_executable(path_a_verify tools/validation/path_a_verify.cpp)
+target_include_directories(path_a_verify PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tools")
+target_link_libraries(path_a_verify PRIVATE mark_frame_record_reader mark_detector_internal_headers)

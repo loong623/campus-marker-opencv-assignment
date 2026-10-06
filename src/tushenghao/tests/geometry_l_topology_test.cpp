@@ -22,12 +22,16 @@ void roundedL(){auto c=contour("l-topology-rounded-L3.txt");auto o=mark::observe
 void shortM(){auto c=contour("l-topology-short-M1.txt");auto o=mark::observeShapes({c},mark::GeometryConfig{});require(!hasL(o.at(0)),"short M impersonates L");}
 // 视频帧2的完整实测轮廓：观察侧不能以epsilon闭合门槛提前剔除父验证可接纳的L。
 void noisyL(){auto c=contour("l-topology-video2-L.txt");require(hasL(mark::observeShapes({c},mark::GeometryConfig{}).at(0)),"epsilon closure discards observed long-arm L");}
-// 凹点锚点均为观测多边形真实坐标，刻意将噪声凹点放第一；禁止只选第一个。
+// 内部枚举 fixture：两个完整长臂 L 分别支持不同实测点，并非同一真实轮廓证明。
 std::vector<mark::ShapeObservation> anchors(const mark::MarkerGeometry& model){
  std::vector<mark::ShapeObservation> os;int i=0;for(auto& p:model.polygons)if(p.id[0]=='L'){
   mark::ShapeObservation o;auto good=p.anchor*2+cv::Point2f(100,150);auto bad=good+cv::Point2f(float(3+i*2),float(2-i));
   o.simplified_polygon_={bad,good};o.turns_={{0,mark::TurnType::CONCAVE},{1,mark::TurnType::CONCAVE}};
-  o.anchor_vertex_index_=0;o.supported_classes_={"L"};os.push_back(o);++i;
+  o.anchor_vertex_index_=0;o.supported_classes_={"L"};
+  for(auto anchor:{bad,good}){mark::LTopologyCandidate t;t.simplification_epsilon_=1;
+   for(size_t j=0;j<p.vertices.size();++j){t.polygon_.push_back((p.vertices[j]-p.anchor)*2+anchor);if(p.vertices[j]==p.anchor)t.concave_vertex_indices_.push_back(j);}
+   o.l_topology_candidates_.push_back(t);}
+  os.push_back(o);++i;
  }return os;
 }
 void allAnchors(){auto model=fixture::model();auto os=anchors(model);mark::GeometryConfig cfg;
@@ -36,12 +40,14 @@ void allAnchors(){auto model=fixture::model();auto os=anchors(model);mark::Geome
   equal=equal&&cv::norm(predicted-cv::Point2d(os[a.component_id_].simplified_polygon_[1]))<1e-5;}found=found||equal;}
  require(found,"all observed concave anchors not enumerated");
 }
-// 六边拓扑候选只保留噪声锚点时，原简化轮廓的第二实测凹点仍必须被枚举。
+// 裸凹点不能借 L 类别获得资格；保留合法 good，禁止 unsupported bad 参与任何拟合。
 void originalAnchors(){auto model=fixture::model();auto os=anchors(model);
- for(auto& o:os){mark::LTopologyCandidate t;t.polygon_={o.simplified_polygon_[0]};t.concave_vertex_indices_={0};o.l_topology_candidates_.push_back(t);}
+ for(auto& o:os)o.l_topology_candidates_.erase(o.l_topology_candidates_.begin());
  auto batch=mark::generateGeometryHypotheses(os,model,mark::GeometryConfig{});bool found=false;
- for(auto& h:batch.hypotheses_){bool good=true;for(auto& a:h.assignments_){auto p=std::find_if(model.polygons.begin(),model.polygons.end(),[&](auto& p){return p.id==a.model_part_id_;});good=good&&cv::norm(mark::observed::project(h.affine_transform_,p->anchor)-cv::Point2d(os[a.component_id_].simplified_polygon_[1]))<1e-5;}found=found||good;}
- require(found,"original contour concave anchor omitted by topology subset");
+ for(auto& h:batch.hypotheses_){bool good=true;for(auto& a:h.assignments_){auto p=std::find_if(model.polygons.begin(),model.polygons.end(),[&](auto& p){return p.id==a.model_part_id_;});auto predicted=mark::observed::project(h.affine_transform_,p->anchor);
+  require(cv::norm(predicted-cv::Point2d(os[a.component_id_].simplified_polygon_[0]))>1e-5,"unsupported raw anchor admitted");
+  good=good&&cv::norm(predicted-cv::Point2d(os[a.component_id_].simplified_polygon_[1]))<1e-5;}found=found||good;}
+ require(found,"legal anchor omitted");
 }
 // 搜索上限计每个锚点元组，包含无效仿射；精确48穷尽与第49之前截断分别检查。
 void anchorResource(){auto model=fixture::model();auto os=anchors(model);mark::GeometryConfig cfg;cfg.max_hypothesis_count_=48;
@@ -67,4 +73,4 @@ void brightnessBoundary(){mark::FrameInput input{};mark::PreprocessConfig pre;pr
  input.image=cv::Mat(40,40,CV_8UC3,cv::Scalar(201,201,201));frame=mark::preprocess(input,pre);auto cs=mark::extractWhiteComponents(frame,cfg);require(cs.size()==1,"gray201 not counted as white");require(!hasL(mark::observeShapes(cs,cfg).at(0)),"bright rectangle promises L");
 }
 }
-int main(){int failures=0;for(auto t:std::vector<std::pair<const char*,std::function<void()>>>{{"RoundedL",roundedL},{"ShortM",shortM},{"NoisyL",noisyL},{"AllConcaveAnchors",allAnchors},{"OriginalConcaveAnchors",originalAnchors},{"AnchorResource",anchorResource},{"StableIds",stableIds},{"WindingAndRectangle",windingAndRectangle},{"BrightnessBoundary",brightnessBoundary}}){try{t.second();std::cout<<"PASS "<<t.first<<'\n';}catch(const std::exception& e){++failures;std::cerr<<"FAIL "<<t.first<<": "<<e.what()<<'\n';}}return failures?1:0;}
+int main(){int failures=0;for(auto t:std::vector<std::pair<const char*,std::function<void()>>>{{"RoundedL",roundedL},{"ShortM",shortM},{"NoisyL",noisyL},{"AllConcaveAnchors",allAnchors},{"UnsupportedRawConcaveAnchors",originalAnchors},{"AnchorResource",anchorResource},{"StableIds",stableIds},{"WindingAndRectangle",windingAndRectangle},{"BrightnessBoundary",brightnessBoundary}}){try{t.second();std::cout<<"PASS "<<t.first<<'\n';}catch(const std::exception& e){++failures;std::cerr<<"FAIL "<<t.first<<": "<<e.what()<<'\n';}}return failures?1:0;}

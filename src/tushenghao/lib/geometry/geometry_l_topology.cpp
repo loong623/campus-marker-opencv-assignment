@@ -21,6 +21,19 @@ bool explicitL(const std::vector<cv::Point2d>& p,size_t& concave) {
     return true;
 }
 }
+// 复用原结构规则，防止内部伪候选借 L 类别进入拟合；不添加拟合／原图门限。
+bool is_valid_l_topology_candidate(const LTopologyCandidate& candidate) {
+    if(candidate.polygon_.size()!=6 || !std::isfinite(candidate.simplification_epsilon_) ||
+       candidate.simplification_epsilon_<=0 || candidate.concave_vertex_indices_.size()!=1 ||
+       candidate.concave_vertex_indices_[0]>=6)return false;
+    std::vector<cv::Point2d> polygon;
+    for(auto p:candidate.polygon_) {
+        if(!std::isfinite(p.x)||!std::isfinite(p.y))return false;
+        polygon.emplace_back(p);
+    }
+    size_t concave=0;
+    return explicitL(polygon,concave) && concave==candidate.concave_vertex_indices_[0];
+}
 // 固定六个epsilon比例，至多两额外顶点的实测子序列；不从H/video逐例调参数。
 std::vector<LTopologyCandidate> observeLTopologies(const WhiteComponent& component,const GeometryConfig& config) {
     std::vector<LTopologyCandidate> result;

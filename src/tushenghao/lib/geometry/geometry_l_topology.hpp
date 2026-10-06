@@ -3,5 +3,7 @@
 #include "core/geometry_types.hpp"
 #include "mark/detector_config.hpp"
 namespace mark {
+// 验证候选声明的唯一凹点；L 类别不能替所有原轮廓凹点提供资格。
+bool is_valid_l_topology_candidate(const LTopologyCandidate& candidate);
 std::vector<LTopologyCandidate> observeLTopologies(const WhiteComponent&,const GeometryConfig&);
 }
