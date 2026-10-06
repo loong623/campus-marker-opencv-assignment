@@ -15,7 +15,13 @@
  */
 // tests/screen_order_test.cpp
 
-#include <gtest/gtest.h>
+#include <iostream>
+#include <stdexcept>
+#include <utility>
+#include <cmath>
+
+// 普通C++检查在Release仍有效；每用例失败由main独立记录，不引入测试框架。
+namespace { void check(bool ok, const char* message) { if (!ok) throw std::runtime_error(message); } }
 
 #include <array>
 #include <cmath>
@@ -23,9 +29,9 @@
 
 #include <opencv2/core.hpp>
 
-#include "corner_types.hpp"
-#include "detector_config.hpp"
-#include "corner_types.hpp"
+#include "corners/corner_types.hpp"
+#include "mark/detector_config.hpp"
+#include "corners/corner_types.hpp"
 
 namespace mark
 {
@@ -58,12 +64,9 @@ namespace mark
         void expect_success(
             const ScreenOrderResult &result)
         {
-            EXPECT_EQ(
-                result.status_,
-                ScreenOrderStatus::SUCCESS);
+            check((result.status_) == (ScreenOrderStatus::SUCCESS), "EQ check at screen_order:67");
 
-            ASSERT_TRUE(
-                result.screen_order_.has_value());
+            check(bool(result.screen_order_.has_value()), "TRUE check at screen_order:69");
         }
 
         /**
@@ -74,15 +77,11 @@ namespace mark
         void expect_failed(
             const ScreenOrderResult &result)
         {
-            EXPECT_EQ(
-                result.status_,
-                ScreenOrderStatus::FAILED);
+            check((result.status_) == (ScreenOrderStatus::FAILED), "EQ check at screen_order:80");
 
-            EXPECT_FALSE(
-                result.screen_order_.has_value());
+            check(!(result.screen_order_.has_value()), "FALSE check at screen_order:82");
 
-            EXPECT_FALSE(
-                result.rejection_reason_.empty());
+            check(!(result.rejection_reason_.empty()), "FALSE check at screen_order:84");
         }
 
         /**
@@ -94,15 +93,9 @@ namespace mark
         {
             constexpr double epsilon = 1e-6;
 
-            EXPECT_NEAR(
-                actual.x,
-                expected.x,
-                epsilon);
+            check(std::abs((actual.x) - (expected.x)) <= (epsilon), "NEAR check at screen_order:96");
 
-            EXPECT_NEAR(
-                actual.y,
-                expected.y,
-                epsilon);
+            check(std::abs((actual.y) - (expected.y)) <= (epsilon), "NEAR check at screen_order:98");
         }
 
         /**
@@ -147,7 +140,7 @@ namespace mark
      * - 输出 LT/RT/RB/LB；
      * - physical_to_screen 保留物理身份。
      */
-    TEST(ScreenOrderTest, StandardRectangle)
+    void StandardRectangle()
     {
         std::array<cv::Point2d, 4> physical =
             {
@@ -168,24 +161,15 @@ namespace mark
 
         expect_screen_rectangle(order);
 
-        EXPECT_FALSE(
-            order.screen_order_tie_);
+        check(!(order.screen_order_tie_), "FALSE check at screen_order:164");
 
-        EXPECT_EQ(
-            order.physical_to_screen_[0],
-            0);
+        check((order.physical_to_screen_[0]) == (0), "EQ check at screen_order:166");
 
-        EXPECT_EQ(
-            order.physical_to_screen_[1],
-            1);
+        check((order.physical_to_screen_[1]) == (1), "EQ check at screen_order:168");
 
-        EXPECT_EQ(
-            order.physical_to_screen_[2],
-            2);
+        check((order.physical_to_screen_[2]) == (2), "EQ check at screen_order:170");
 
-        EXPECT_EQ(
-            order.physical_to_screen_[3],
-            3);
+        check((order.physical_to_screen_[3]) == (3), "EQ check at screen_order:172");
     }
 
     /**
@@ -194,7 +178,7 @@ namespace mark
      * 验证：
      * 归一化后仍然能恢复屏幕方向。
      */
-    TEST(ScreenOrderTest, TiltedQuadrilateral)
+    void TiltedQuadrilateral()
     {
         std::array<cv::Point2d, 4> physical =
             {
@@ -210,14 +194,13 @@ namespace mark
 
         expect_success(result);
 
-        EXPECT_FALSE(
-            result.screen_order_->screen_order_tie_);
+        check(!(result.screen_order_->screen_order_tie_), "FALSE check at screen_order:197");
 
         for (int index :
              result.screen_order_->physical_to_screen_)
         {
-            EXPECT_GE(index, 0);
-            EXPECT_LT(index, 4);
+            check((index) >= (0), "GE check at screen_order:202");
+            check((index) < (4), "LT check at screen_order:203");
         }
     }
 
@@ -232,7 +215,7 @@ namespace mark
      *
      * 但结果必须明确。
      */
-    TEST(ScreenOrderTest, DiamondNearTie)
+    void DiamondNearTie()
     {
         std::array<cv::Point2d, 4> physical =
             {
@@ -248,15 +231,13 @@ namespace mark
 
         expect_success(result);
 
-        EXPECT_TRUE(
-            result.screen_order_->screen_order_tie_ ||
-            !result.screen_order_->screen_order_tie_);
+        check(bool(result.screen_order_->screen_order_tie_), "TRUE check at screen_order:234");
 
         for (int index :
              result.screen_order_->physical_to_screen_)
         {
-            EXPECT_GE(index, 0);
-            EXPECT_LT(index, 4);
+            check((index) >= (0), "GE check at screen_order:240");
+            check((index) < (4), "LT check at screen_order:241");
         }
     }
 
@@ -269,7 +250,7 @@ namespace mark
      * 排序只依赖几何关系，
      * 不依赖原始输入方向。
      */
-    TEST(ScreenOrderTest, Rotation90_180_270)
+    void Rotation90_180_270()
     {
         const std::array<
             std::array<cv::Point2d, 4>,
@@ -303,8 +284,8 @@ namespace mark
             for (int index :
                  result.screen_order_->physical_to_screen_)
             {
-                EXPECT_GE(index, 0);
-                EXPECT_LT(index, 4);
+                check((index) >= (0), "GE check at screen_order:288");
+                check((index) < (4), "LT check at screen_order:289");
             }
         }
     }
@@ -318,7 +299,7 @@ namespace mark
      * - 平移
      * - 尺寸变化
      */
-    TEST(ScreenOrderTest, TranslationAndScale)
+    void TranslationAndScale()
     {
         std::array<cv::Point2d, 4> physical =
             {
@@ -337,8 +318,8 @@ namespace mark
         for (int index :
              result.screen_order_->physical_to_screen_)
         {
-            EXPECT_GE(index, 0);
-            EXPECT_LT(index, 4);
+            check((index) >= (0), "GE check at screen_order:322");
+            check((index) < (4), "LT check at screen_order:323");
         }
     }
 
@@ -348,7 +329,7 @@ namespace mark
      * xmax/ymax 归一化没有二维范围，
      * 必须失败。
      */
-    TEST(ScreenOrderTest, CollinearFails)
+    void CollinearFails()
     {
         std::array<cv::Point2d, 4> physical =
             {
@@ -370,7 +351,7 @@ namespace mark
      *
      * 两个物理角不能占据同一个位置。
      */
-    TEST(ScreenOrderTest, DuplicatePointFails)
+    void DuplicatePointFails()
     {
         std::array<cv::Point2d, 4> physical =
             {
@@ -388,3 +369,19 @@ namespace mark
     }
 
 } // namespace mark
+// 每个历史用例仍独立执行，失败不会跳过其它用例。
+int main() {
+ int failures=0;
+ const std::pair<const char*, void(*)()> cases[] = {
+  {"StandardRectangle",mark::StandardRectangle},
+  {"TiltedQuadrilateral",mark::TiltedQuadrilateral},
+  {"DiamondNearTie",mark::DiamondNearTie},
+  {"Rotation90_180_270",mark::Rotation90_180_270},
+  {"TranslationAndScale",mark::TranslationAndScale},
+  {"CollinearFails",mark::CollinearFails},
+  {"DuplicatePointFails",mark::DuplicatePointFails},
+ };
+ for (auto item:cases) { try { item.second(); std::cout<<"PASS "<<item.first<<"\n"; }
+ catch(const std::exception& e) { ++failures; std::cerr<<"FAIL "<<item.first<<": "<<e.what()<<"\n"; } }
+ return failures ? 1 : 0;
+}

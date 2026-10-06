@@ -8,7 +8,7 @@
 */
 // 测试几何计算模块：面积、中心点、anchor 偏移、包围盒。
 
-#include "geometry_utils.hpp"
+#include "core/geometry_utils.hpp"
 
 #include <cassert>                 // 断言（assertion）库：在程序运行时检查一个“你认为一定成立”的条件，如果不成立，就直接报错停止（测试不可能发生的内部逻辑错误）
 #include <cmath>

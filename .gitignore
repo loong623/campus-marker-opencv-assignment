@@ -25,3 +25,6 @@ results/
 build-*/
 *.o
 *.avi
+__pycache__/
+*.pyc
+src/tushenghao/tools/synth_ref/runs/

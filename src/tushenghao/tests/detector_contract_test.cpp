@@ -7,7 +7,7 @@
 5. 两个 Detector 各玩各的，互不干扰
 6. 不验证算法对不对（那是板块2），只验证"机器能开机、按钮都能按"。
 */
-#include "detector.hpp"
+#include "mark/detector.hpp"
 
 #include <iostream>
 #include <filesystem>
@@ -78,7 +78,7 @@ namespace
                stored.mode == config.mode;
     }
 
-    // 测试 process 接口可以正常调用，期望返回 FrameResult。
+    // 原测试丢弃结果，无法发现绕过稳定层；现在检查状态、元数据和空载荷。
     bool testProcess()
     {
         mark::Detector detector(createConfig());
@@ -87,13 +87,17 @@ namespace
 
         // Step 8.1 后 process() 跑真 pipeline，需要非空输入图。
         frame.image = cv::Mat(720, 960, CV_8UC3, cv::Scalar(0, 0, 0));
+        frame.frame_id = 42;
+        frame.timestamp_us = 14000;
 
         mark::FrameResult result =
             detector.process(frame);
 
-        (void)result;
-
-        return true;
+        return result.status == mark::Status::NOT_READY &&
+               result.frame_id == frame.frame_id &&
+               result.timestamp_us == frame.timestamp_us &&
+               result.detections.empty() && result.tracks.empty() &&
+               !result.display_state.has_value();
     }
 
     // 测试 reset 接口可以正常调用，期望不会崩溃。

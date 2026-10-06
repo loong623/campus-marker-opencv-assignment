@@ -8,8 +8,8 @@
 
 5 个函数是同一模板，只是"坏"的地方不同（mode 类型 / mode 值 / threshold / 开关 / 文件缺失）。看懂一个，其他四个扫一眼就行。
 */
-#include "config.hpp"
-#include "config_error.hpp"
+#include "config/config.hpp"
+#include "core/config_error.hpp"
 
 #include <filesystem>
 #include <fstream>

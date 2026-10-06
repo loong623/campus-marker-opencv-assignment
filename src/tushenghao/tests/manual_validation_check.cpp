@@ -11,10 +11,10 @@
 */
 // mock 测试:直接造假数据调 validateGeometryBatch，只验逻辑对不对，不用等合成器。
 // 赛前调参（Step 4 的完整测量）:合成器做精细调参,生成带真值的图像，跑完整管线（适合调参数）。
-#include "geometry_matcher.hpp"
-#include "geometry_validation.hpp"
-#include "marker_geometry.hpp"
-#include "detector_config.hpp"
+#include "geometry/geometry_matcher.hpp"
+#include "geometry/geometry_validation.hpp"
+#include "core/marker_geometry.hpp"
+#include "mark/detector_config.hpp"
 
 #include <iostream>
 
@@ -180,6 +180,9 @@ int main()
     components.push_back(createWhiteComponent(8.0f, 8.0f));
     components.push_back(createWhiteComponent(72.0f, 72.0f));
     components.push_back(createWhiteComponent(8.0f, 72.0f));
+    // 手工组件也必须具有唯一来源ID，与对应观察的兼容索引一致。
+    for (std::size_t i = 0; i < components.size(); ++i)
+        components[i].component_id_ = i;
 
     mark::MarkerGeometry geometry = createSimpleGeometry();
 

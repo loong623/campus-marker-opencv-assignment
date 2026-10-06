@@ -7,10 +7,16 @@
 search_truncated：即使只有一个假设、方向本该唯一，传 true 进去→orientation_unique_ 强制 false。
 */
 // tests/semantic_resolver_test.cpp
-#include <gtest/gtest.h>
+#include <iostream>
+#include <stdexcept>
+#include <utility>
+#include <cmath>
 
-#include "semantic_resolver.hpp"
-#include "detector_config.hpp"
+// 普通C++检查在Release仍有效；每用例失败由main独立记录，不引入测试框架。
+namespace { void check(bool ok, const char* message) { if (!ok) throw std::runtime_error(message); } }
+
+#include "corners/semantic_resolver.hpp"
+#include "mark/detector_config.hpp"
 
 namespace mark
 {
@@ -111,7 +117,7 @@ namespace mark
 
     } // namespace
 
-    TEST(SemanticResolverTest, EmptyInputFails)
+    void EmptyInputFails()
     {
         auto result =
             resolveSemantics(
@@ -119,20 +125,16 @@ namespace mark
                 false,
                 make_test_config());
 
-        EXPECT_FALSE(
-            result.geometry_consistent_);
+        check(!(result.geometry_consistent_), "FALSE check at semantic_resolver:128");
 
-        EXPECT_FALSE(
-            result.orientation_unique_);
+        check(!(result.orientation_unique_), "FALSE check at semantic_resolver:130");
 
-        EXPECT_TRUE(
-            result.retained_measurements_.empty());
+        check(bool(result.retained_measurements_.empty()), "TRUE check at semantic_resolver:132");
 
-        EXPECT_FALSE(
-            result.rejection_reason_.empty());
+        check(!(result.rejection_reason_.empty()), "FALSE check at semantic_resolver:134");
     }
 
-    TEST(SemanticResolverTest, SingleMeasurementIsUnique)
+    void SingleMeasurementIsUnique()
     {
         auto measurement =
             make_measurement(
@@ -146,21 +148,16 @@ namespace mark
                 false,
                 make_test_config());
 
-        EXPECT_TRUE(
-            result.geometry_consistent_);
+        check(bool(result.geometry_consistent_), "TRUE check at semantic_resolver:151");
 
-        EXPECT_TRUE(
-            result.orientation_unique_);
+        check(bool(result.orientation_unique_), "TRUE check at semantic_resolver:153");
 
-        ASSERT_EQ(
-            result.retained_measurements_.size(),
-            1);
+        check((result.retained_measurements_.size()) == (1), "EQ check at semantic_resolver:155");
 
-        EXPECT_TRUE(
-            result.rejection_reason_.empty());
+        check(bool(result.rejection_reason_.empty()), "TRUE check at semantic_resolver:157");
     }
 
-    TEST(SemanticResolverTest, SameGeometrySameOrientationKeepsLowerResidual)
+    void SameGeometrySameOrientationKeepsLowerResidual()
     {
         auto high_error =
             make_measurement(
@@ -181,15 +178,11 @@ namespace mark
                 false,
                 make_test_config());
 
-        EXPECT_TRUE(
-            result.geometry_consistent_);
+        check(bool(result.geometry_consistent_), "TRUE check at semantic_resolver:181");
 
-        EXPECT_TRUE(
-            result.orientation_unique_);
+        check(bool(result.orientation_unique_), "TRUE check at semantic_resolver:183");
 
-        ASSERT_EQ(
-            result.retained_measurements_.size(),
-            1);
+        check((result.retained_measurements_.size()) == (1), "EQ check at semantic_resolver:185");
 
         /*
          * 保留已有 measurement，
@@ -197,11 +190,9 @@ namespace mark
          *
          * 这里检查残差更小的那个。
          */
-        EXPECT_DOUBLE_EQ(
-            result.retained_measurements_[0]
+        check((result.retained_measurements_[0]
                 .evidence_[0]
-                .error_,
-            1.0);
+                .error_) == (1.0), "DOUBLE_EQ check at semantic_resolver:193");
     }
 
     /* 测试设计点：
@@ -216,7 +207,7 @@ namespace mark
     geometry_consistent_=true
     orientation_unique_=false
     */
-    TEST(SemanticResolverTest, SameGeometryDifferentOrientationIsAmbiguous)
+    void SameGeometryDifferentOrientationIsAmbiguous()
     {
         auto first =
             make_measurement(
@@ -235,22 +226,18 @@ namespace mark
                 false,
                 make_test_config());
 
-        EXPECT_TRUE(
-            result.geometry_consistent_);
+        check(bool(result.geometry_consistent_), "TRUE check at semantic_resolver:229");
 
         /*
          * 几何一致，
          * 但是物理角方向解释不同。
          */
-        EXPECT_FALSE(
-            result.orientation_unique_);
+        check(!(result.orientation_unique_), "FALSE check at semantic_resolver:235");
 
-        ASSERT_EQ(
-            result.retained_measurements_.size(),
-            1);
+        check((result.retained_measurements_.size()) == (1), "EQ check at semantic_resolver:237");
     }
 
-    TEST(SemanticResolverTest, GeometryConflictFails)
+    void GeometryConflictFails()
     {
         auto first =
             make_measurement(
@@ -275,17 +262,14 @@ namespace mark
                 false,
                 make_test_config());
 
-        EXPECT_FALSE(
-            result.geometry_consistent_);
+        check(!(result.geometry_consistent_), "FALSE check at semantic_resolver:265");
 
-        EXPECT_TRUE(
-            result.retained_measurements_.empty());
+        check(bool(result.retained_measurements_.empty()), "TRUE check at semantic_resolver:267");
 
-        EXPECT_FALSE(
-            result.rejection_reason_.empty());
+        check(!(result.rejection_reason_.empty()), "FALSE check at semantic_resolver:269");
     }
 
-    TEST(SemanticResolverTest, SearchTruncatedForcesOrientationFalse)
+    void SearchTruncatedForcesOrientationFalse()
     {
         auto measurement =
             make_measurement(
@@ -299,19 +283,30 @@ namespace mark
                 true,
                 make_test_config());
 
-        EXPECT_TRUE(
-            result.geometry_consistent_);
+        check(bool(result.geometry_consistent_), "TRUE check at semantic_resolver:286");
 
         /*
          * 即使当前只有一个方向解释，
          * 搜索截断也不能声明方向唯一。
          */
-        EXPECT_FALSE(
-            result.orientation_unique_);
+        check(!(result.orientation_unique_), "FALSE check at semantic_resolver:292");
 
-        ASSERT_EQ(
-            result.retained_measurements_.size(),
-            1);
+        check((result.retained_measurements_.size()) == (1), "EQ check at semantic_resolver:294");
     }
 
 } // namespace mark
+// 每个历史用例仍独立执行，失败不会跳过其它用例。
+int main() {
+ int failures=0;
+ const std::pair<const char*, void(*)()> cases[] = {
+  {"EmptyInputFails",mark::EmptyInputFails},
+  {"SingleMeasurementIsUnique",mark::SingleMeasurementIsUnique},
+  {"SameGeometrySameOrientationKeepsLowerResidual",mark::SameGeometrySameOrientationKeepsLowerResidual},
+  {"SameGeometryDifferentOrientationIsAmbiguous",mark::SameGeometryDifferentOrientationIsAmbiguous},
+  {"GeometryConflictFails",mark::GeometryConflictFails},
+  {"SearchTruncatedForcesOrientationFalse",mark::SearchTruncatedForcesOrientationFalse},
+ };
+ for (auto item:cases) { try { item.second(); std::cout<<"PASS "<<item.first<<"\n"; }
+ catch(const std::exception& e) { ++failures; std::cerr<<"FAIL "<<item.first<<": "<<e.what()<<"\n"; } }
+ return failures ? 1 : 0;
+}

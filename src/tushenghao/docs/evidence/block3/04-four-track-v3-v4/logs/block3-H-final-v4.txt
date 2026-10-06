@@ -1,0 +1,1 @@
+total=720 stage_correct=705 isolated_correct=720 wrong_valid=0 acceptance=FAIL

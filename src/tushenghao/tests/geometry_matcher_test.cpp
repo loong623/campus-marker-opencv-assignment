@@ -12,9 +12,9 @@ generateGeometryHypotheses()
           v
 GeometryBatch
 */
-#include "geometry_matcher.hpp"
-#include "marker_geometry.hpp"
-#include "detector_config.hpp"
+#include "geometry/geometry_matcher.hpp"
+#include "core/marker_geometry.hpp"
+#include "mark/detector_config.hpp"
 
 #include <cassert>
 #include <iostream>
