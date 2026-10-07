@@ -1,13 +1,3 @@
-/* 最终质检员的"上岗证"。
-这个 hpp 只声明一个函数 validateDetectionGeometry，不干活，只定接口：
-
-输入：CornerMeasurement（4 个物理角）+ ScreenOrder（屏幕顺序映射）+ 原图尺寸 + 配置
-输出：DetectionValidation（过/不过 + 原因）
-干啥：检查 4 个点是不是合法凸四边形、映射对不对、有没有出界
-不干：不重新检测、不改角点身份、不创建 Detection、不 decode
-
-实现在 cpp 里，hpp 只是告诉别人"我有这个功能，签名长这样"。
-*/
 #pragma once
 
 #include "corners/corner_types.hpp"

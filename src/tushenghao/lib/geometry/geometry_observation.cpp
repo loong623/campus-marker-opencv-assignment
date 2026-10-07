@@ -202,17 +202,6 @@ namespace mark
             // TODO: 待合成数据测量后填入
             observation.simplification_error_ = 0.0;
 
-            /*
-             * 初步类别支持：
-             * 这里只提供候选，不做最终分类。
-             *
-             * 后续 GeometryHypothesis 会结合：
-             * - 多个白片关系
-             * - 仿射一致性
-             * - 验证残差
-             * 决定最终解释。
-             */
-
             // 原来的6/7顶点分类会把圆角真L排除、把短M冒充L；改为完整轮廓显式L多候选。
             // 基础多边形/turns仅保留原始诊断口径，真正三L搜索消费以下六边结构候选。
             observation.l_topology_candidates_ = observeLTopologies(component, config);

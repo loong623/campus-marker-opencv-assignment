@@ -9,17 +9,6 @@
 namespace mark
 {
     // 加载标记几何信息
-    /* 实现 loadMarkerGeometry():
-    不直接把 FileNode 留在结构体里
-        * YAML
-            |
-            | FileStorage
-            v
-         cv::FileNode
-            |
-            v
-            MarkerGeometry
-    */
     MarkerGeometry loadMarkerGeometry(
         const std::filesystem::path &path)
     {

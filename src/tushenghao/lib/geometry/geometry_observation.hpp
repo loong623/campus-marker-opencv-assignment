@@ -1,19 +1,3 @@
-// block2step5
-/*
-PreparedFrame
-      |
-      v
-extractWhiteComponents()
-      |
-      v
-WhiteComponent
-      |
-      v
-observeShapes()
-      |
-      v
-ShapeObservation
-*/
 #pragma once
 
 #include "core/geometry_types.hpp"

@@ -28,20 +28,3 @@ namespace mark
     };
 
 } // namespace mark
-
-/* 简化理解(runtime_error父类):throw,catch,初始化父类 runtime_error(初始化列表可以直接调用父类构造函数)
-class runtime_error
-{
-private:
-    string message_;
-
-public:
-
-    runtime_error(string msg)
-    {
-        message_ = msg;
-    }
-
-    const char* what();
-};
-*/

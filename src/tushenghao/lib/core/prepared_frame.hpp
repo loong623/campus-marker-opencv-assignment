@@ -1,20 +1,3 @@
-/*实现范围：预处理后的当前帧数据
-FrameInput
-    |
-    v
-preprocess()
-    |
-    +-- resize
-    |
-    +-- threshold
-    |
-    +-- coordinate mapping
-    |
-    +-- frame context
-    |
-    v
-PreparedFrame
-*/
 #pragma once
 
 #include <cstdint>

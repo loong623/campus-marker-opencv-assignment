@@ -9,30 +9,6 @@
 
 #include <opencv2/core.hpp>
 
-/*          快速恢复：NOTE
-FrameInput
-    |
-    | 输入
-    ↓
-
-Detector
-
-    |
-    | 输出
-    ↓
-
-FrameResult
-    |
-    ├── detections
-    |       当前检测
-    |
-    ├── tracks
-    |       稳定结果
-    |
-    └── display_state
-            显示历史状态
-*/
-
 namespace mark
 {
 

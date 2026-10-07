@@ -1,5 +1,3 @@
-// Detector 自己需要的配置结构（只包含检测算法配置）14 个 YAML 字段（冻结文档，配置文件语言） → C++ 成员（映射，程序语言）
-// Detector 模块的配置结构体定义（定义 外部怎么配置 Detector）（配置怎么传递）（公共接口层组分）
 #pragma once
 
 #include <string>
@@ -276,19 +274,3 @@ namespace mark
     };              // 和 YAML 配置层级一致！参数  给定默认值再覆盖（如果 YAML 没写，使用默认值）
 
 } // namespace mark
-
-/*
-读取 app.yaml
-
-        ↓
-
-AppConfig
-
-        ↓
-
-DetectorConfig
-
-        ↓
-
-创建 Detector（使用配置进行检测）
-*/

@@ -21,31 +21,6 @@ namespace mark
 
         // Step 6 搜索资源限制。
         // 防止异常场景下组合数量无限增长。
-        // constexpr std::size_t MAX_HYPOTHESIS_COUNT = 1000;
-
-        /*
-         * 判断模型 polygon 是否属于 L 类型。
-         *
-         * 注意：
-         * 这里使用的是 MarkerGeometry 中 polygon.id 的命名约定。
-         *
-         * 例如：
-         *     L0
-         *     L1
-         *     L2
-         *
-         * 不是 detector 已知 MARK ID。
-         *
-         * Step 6 的目标仍然是：
-         *
-         * observation
-         *      |
-         *      v
-         * 几何推理
-         *      |
-         *      v
-         * 得到解释
-         */
         bool isModelLComponent(const GeometryPolygon &polygon)
         {
             return !polygon.id.empty() && polygon.id[0] == 'L';
@@ -134,13 +109,6 @@ namespace mark
         // debug
         // std::cerr << "[DEBUG] model polygons: " << model_geometry.polygons.size() << std::endl;
 
-        /*
-         * 找模型中的三个 L。
-         *
-         * 注意：
-         * L 来自模型配置命名约定，
-         * 不是 detector 输入。
-         */
         std::vector<std::string> model_L_ids;
 
         for (const auto &polygon : model_geometry.polygons)

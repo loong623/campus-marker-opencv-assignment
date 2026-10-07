@@ -4,11 +4,11 @@
 
 ## 第一步：安装依赖并构建
 
-环境：Ubuntu 24.04、GCC 13.3.0、C++17、CMake 3.28.3、OpenCV 4.6.0、OpenSSL 3.0.13。
+环境：Ubuntu 24.04、GCC 13.3.0、C++17、CMake 3.28.3、OpenCV 4.6.0
 每条命令均为单行：
 
 ```bash
-sudo apt-get update && sudo apt-get install --no-install-recommends build-essential cmake libopencv-dev libssl-dev
+sudo apt-get update && sudo apt-get install --no-install-recommends build-essential cmake libopencv-dev
 cmake -S src/tushenghao -B build/release -DCMAKE_BUILD_TYPE=Release && cmake --build build/release -j4
 ```
 
@@ -64,4 +64,4 @@ ffplay new-runs/quickstart-verification-01/overlay.mp4
 
 配置模型路径相对 YAML 所在目录解析；命令中的视频和输出路径按当前工作目录解析。库使用者包含 `<mark/detector.hpp>`，内部模块见 `lib/`。
 
-当前框来自当前帧测量，失检时不绘历史框；证据不足、结构截断或无法消除的几何竞争会拒绝，方向不唯一可保持 unknown。一般透视、任意尺度/成像条件和真实角点精度仍有适用范围限制；本轮小修没有解决闪烁或重定预算
+当前框来自当前帧测量，失检时不绘历史框；证据不足、结构截断或无法消除的几何竞争会拒绝，方向不唯一可保持 unknown。一般透视、任意尺度/成像条件和真实角点精度仍有适用范围限制；本轮提交没有解决闪烁或重定预算，故暂且放宽阈值减少一些闪烁（max_line_fit_error：0.5->0.75 ； max_edge_position_distance_px： 9->9.5）。
