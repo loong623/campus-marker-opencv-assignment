@@ -1,3 +1,5 @@
+# 提交材料：[REPORT.md](submissions/REPORT.md); 两份生成视频及相应运行产物均放置在该文件夹下
+
 # MARK 检测：快速开始
 
 本目录实现基于白色几何结构的 MARK 检测、当前帧角点取证、时序稳定及离线诊断。以下操作适用于 Ubuntu/Linux，均从**仓库根目录**执行；输入视频由你提供。
@@ -60,8 +62,16 @@ build/release/marker_app --video "$VIDEO" --config src/tushenghao/config/detecto
 ffplay new-runs/quickstart-verification-01/overlay.mp4
 ```
 
+如需在 Windows 上播放，先转码为 H.264：
+
+'''bash
+ffmpeg -i new-runs/quickstart-verification-01/overlay.mp4 -c:v libx264 new-runs/quickstart-verification-01/overlay_h264.mp4
+'''
+
 ## 路径与已知限制
 
 配置模型路径相对 YAML 所在目录解析；命令中的视频和输出路径按当前工作目录解析。库使用者包含 `<mark/detector.hpp>`，内部模块见 `lib/`。
 
-当前框来自当前帧测量，失检时不绘历史框；证据不足、结构截断或无法消除的几何竞争会拒绝，方向不唯一可保持 unknown。一般透视、任意尺度/成像条件和真实角点精度仍有适用范围限制；本轮提交没有解决闪烁或重定预算，故暂且放宽阈值减少一些闪烁（max_line_fit_error：0.5->0.75 ； max_edge_position_distance_px： 9->9.5）。
+当前框来自当前帧测量，失检时不绘历史框；证据不足、结构截断或无法消除的几何竞争会拒绝，方向不唯一可保持 unknown。一般透视、任意尺度/成像条件和真实角点精度仍有适用范围限制；本轮提交没有解决闪烁或重定预算，故暂且放宽阈值减少导出视频的闪烁（max_line_fit_error：0.5->0.75 ； max_edge_position_distance_px： 9->9.5），后续解决。
+
+还有性能问题依旧存在，需要优化。
