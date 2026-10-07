@@ -29,3 +29,8 @@ __pycache__/
 *.pyc
 src/tushenghao/tools/synth_ref/runs/
 new-runs/
+build/
+output/
+*.avi
+*.mp4
+.vscode/
