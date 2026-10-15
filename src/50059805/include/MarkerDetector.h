@@ -18,7 +18,7 @@ struct MarkerResult {
 class MarkerDetector {
  public:
   MarkerDetector();
-  MarkerResult detect(const cv::Mat& frame);
+  std::vector<MarkerResult> detectMultiple(const cv::Mat& frame);
 
  private:
   cv::Mat preprocess(const cv::Mat& frame);

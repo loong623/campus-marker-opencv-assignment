@@ -12,7 +12,7 @@ void runChallengePart() {
   std::cout << "Running challenge part: Camera calibration and marker detection"
             << std::endl;
   Calibrator calibrator;
-  std::string params_file = "camera_params.yml";
+  std::string params_file = "../camera_params.yml";
   std::string calib_video_path = "../../../data/raw/calibration_video.avi";
   std::string marker_video_path = "../../../data/raw/marker_video.avi";
   if (calibrator.loadParams(params_file)) {
@@ -97,7 +97,7 @@ void runChallengePart() {
                                cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
                                output_fps, frame_size, true);
 
-  if(!video_writer.isOpened()) {
+  if (!video_writer.isOpened()) {
     std::cerr << "Failed to open video writer for output: " << output_video_path
               << std::endl;
     return;
@@ -113,17 +113,37 @@ void runChallengePart() {
 
     frame_count++;
     if (frame_count > max_processed_frames) {
-      std::cout << "Reached maximum processed frames: " << max_processed_frames << std::endl;
+      std::cout << "Reached maximum processed frames: " << max_processed_frames
+                << std::endl;
       break;
     }
 
-    MarkerResult result = detector.detect(frame);
-    if (result.detected_ == true && result.points_.size() == 4) {
-      if (pose_estimator.solve(result.points_, marker_3d_points)) {
-        pose_estimator.drawAxis(frame, 0.04f);
+    // MarkerResult result = detector.detectMultiple(frame);
+
+    std::vector<MarkerResult> results = detector.detectMultiple(frame);
+    for (const auto& result : results) {
+      if (result.detected_ && result.points_.size() == 4) {
+        // 对每一个检测到的 Marker 分别求解位姿并绘制坐标轴
+        if (pose_estimator.solve(result.points_, marker_3d_points)) {
+          pose_estimator.drawAxis(frame, 0.04f);
+        }
       }
+      // 分别绘制每个 Marker 的角点和边框
+      visualizer.drawMarker(frame, result);
     }
-    visualizer.drawMarker(frame, result);
+
+    // 如果画面中一个 Marker 都没有，可以画个 Target Lost
+    if (results.empty()) {
+      MarkerResult emptyResult;
+      emptyResult.detected_ = false;
+      visualizer.drawMarker(frame, emptyResult);
+    }
+    // if (result.detected_ == true && result.points_.size() == 4) {
+    //   if (pose_estimator.solve(result.points_, marker_3d_points)) {
+    //     pose_estimator.drawAxis(frame, 0.04f);
+    //   }
+    // }
+    // visualizer.drawMarker(frame, result);
 
     if (video_writer.isOpened()) {
       video_writer.write(frame);

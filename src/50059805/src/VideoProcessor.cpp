@@ -1,6 +1,8 @@
 #include "VideoProcessor.h"
-#include "Visualizer.h"
+
 #include <iostream>
+
+#include "Visualizer.h"
 
 VideoProcessor::VideoProcessor() {}
 
@@ -21,8 +23,22 @@ void VideoProcessor::run(const std::string& videoPath) {
       break;
     }
 
-    MarkerResult currentResult = detector_.detect(frame);
-    updateState(currentResult);
+    // MarkerResult currentResult = detector_.detectMultiple(frame);
+    std::vector<MarkerResult> results = detector_.detectMultiple(frame);
+    MarkerResult bestResult;
+    float max_area = 0.0f;
+    for (const auto& res : results) {
+      if (res.detected_) {
+        float area = res.bounding_box_.width * res.bounding_box_.height;
+        if (area > max_area) {
+          max_area = area;
+          bestResult = res;
+        }
+      }
+    }
+
+    // updateState(currentResult);
+    updateState(bestResult);
 
     // 根据状态绘制标记检测结果
     if (detectedFrames_ >= MIN_DETECTED_FRAMES && lostFrames_ == 0) {
