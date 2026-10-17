@@ -109,7 +109,7 @@ std::vector<MarkerResult> MarkerDetector::detectMultiple(const cv::Mat& frame) {
   std::vector<std::vector<cv::Point>> l_contours;
   std::vector<cv::Point2f> l_centers;
 
-  double min_l_area = 300.0;  // 最小面积阈值，根据实际情况调整
+  double min_l_area = 100.0;  // 最小面积阈值，根据实际情况调整
 
   for (const auto& contour : contours) {
     double area = cv::contourArea(contour);
@@ -153,7 +153,7 @@ std::vector<MarkerResult> MarkerDetector::detectMultiple(const cv::Mat& frame) {
       }
 
       float aspect_ratio = rotated_rect.size.width / rotated_rect.size.height;
-      if (aspect_ratio < 0.75f || aspect_ratio > 1.33f) {
+      if (aspect_ratio < 0.85f || aspect_ratio > 1.15f) {
         continue;  // 长宽比不符合要求，忽略
       }
 
