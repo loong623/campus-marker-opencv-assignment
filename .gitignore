@@ -1,4 +1,4 @@
-# Python cache and local environments
+# Python cache and Local environments
 __pycache__/
 *.py[cod]
 .venv/
@@ -16,7 +16,6 @@ dist/
 *.swp
 
 # Generated outputs
-outputs/
 results/
 *.mp4
 *.mkv
