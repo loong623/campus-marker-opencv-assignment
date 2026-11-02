@@ -18,7 +18,6 @@ dist/
 # Generated outputs
 outputs/
 results/
-*.mp4
 *.mkv
 
 # 自己加的规则
