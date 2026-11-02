@@ -18,6 +18,5 @@ dist/
 # Generated outputs
 outputs/
 results/
-*.mp4
 *.mkv
 
